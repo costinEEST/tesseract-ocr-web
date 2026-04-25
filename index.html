@@ -1,0 +1,572 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PDF → Markdown / DOCX</title>
+    <link rel="icon" href="data:," />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Playfair+Display:wght@700;900&display=swap"
+      rel="stylesheet" />
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      :root {
+        --bg: #0e0f11;
+        --surface: #16181d;
+        --border: #2a2d35;
+        --accent: #e8c97e;
+        --accent2: #5b8dee;
+        --text: #d4d6dc;
+        --muted: #656a78;
+        --success: #4caf7d;
+        --error: #e05252;
+        --radius: 6px;
+      }
+
+      body {
+        font-family: "DM Mono", monospace;
+        background: var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 48px 20px 0;
+      }
+
+      header {
+        width: 100%;
+        max-width: 860px;
+        margin-bottom: 48px;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 32px;
+      }
+      .badge {
+        display: inline-block;
+        font-size: 10px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--accent);
+        border: 1px solid var(--accent);
+        padding: 3px 8px;
+        border-radius: 3px;
+        margin-bottom: 18px;
+      }
+      h1 {
+        font-family: "Playfair Display", serif;
+        font-size: clamp(28px, 5vw, 48px);
+        font-weight: 900;
+        line-height: 1.1;
+        letter-spacing: -0.02em;
+        color: #fff;
+      }
+      h1 span {
+        color: var(--accent);
+      }
+      .subtitle {
+        margin-top: 12px;
+        font-size: 12px;
+        color: var(--muted);
+        letter-spacing: 0.06em;
+      }
+
+      .card {
+        width: 100%;
+        max-width: 860px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 32px;
+        margin-bottom: 24px;
+      }
+
+      #dropzone {
+        border: 2px dashed var(--border);
+        border-radius: var(--radius);
+        padding: 48px 24px;
+        text-align: center;
+        cursor: pointer;
+        transition:
+          border-color 0.2s,
+          background 0.2s;
+        position: relative;
+      }
+      #dropzone:hover,
+      #dropzone.drag-over {
+        border-color: var(--accent);
+        background: rgba(232, 201, 126, 0.04);
+      }
+      #dropzone input[type="file"] {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        cursor: pointer;
+      }
+      .drop-icon {
+        font-size: 36px;
+        margin-bottom: 12px;
+        display: block;
+      }
+      .drop-label {
+        font-size: 13px;
+        color: var(--text);
+      }
+      .drop-sub {
+        font-size: 11px;
+        color: var(--muted);
+        margin-top: 6px;
+      }
+      #file-name {
+        margin-top: 16px;
+        font-size: 12px;
+        color: var(--accent);
+        min-height: 18px;
+      }
+
+      .controls {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-top: 24px;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 22px;
+        font-family: "DM Mono", monospace;
+        font-size: 12px;
+        font-weight: 500;
+        letter-spacing: 0.06em;
+        border: none;
+        border-radius: var(--radius);
+        cursor: pointer;
+        transition:
+          opacity 0.15s,
+          transform 0.1s;
+      }
+      .btn:active {
+        transform: scale(0.97);
+      }
+      .btn:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+      }
+      .btn-primary {
+        background: var(--accent);
+        color: #0e0f11;
+      }
+      .btn-primary:hover:not(:disabled) {
+        opacity: 0.88;
+      }
+      .btn-outline {
+        background: transparent;
+        color: var(--text);
+        border: 1px solid var(--border);
+      }
+      .btn-outline:hover:not(:disabled) {
+        border-color: var(--muted);
+      }
+
+      #progress-wrap {
+        margin-top: 24px;
+        display: none;
+      }
+      #progress-wrap.visible {
+        display: block;
+      }
+      .progress-header {
+        display: flex;
+        justify-content: space-between;
+        font-size: 11px;
+        color: var(--muted);
+        margin-bottom: 8px;
+      }
+      #progress-track {
+        height: 3px;
+        background: var(--border);
+        border-radius: 99px;
+        overflow: hidden;
+      }
+      #progress-bar {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, var(--accent2), var(--accent));
+        transition: width 0.4s ease;
+        border-radius: 99px;
+      }
+      #status-msg {
+        margin-top: 10px;
+        font-size: 11px;
+        color: var(--muted);
+        min-height: 16px;
+      }
+      #status-msg.ok {
+        color: var(--success);
+      }
+      #status-msg.err {
+        color: var(--error);
+      }
+
+      .output-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+      }
+      .output-label {
+        font-size: 11px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .output-actions {
+        display: flex;
+        gap: 8px;
+      }
+      #output {
+        width: 100%;
+        height: 360px;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        color: var(--text);
+        font-family: "DM Mono", monospace;
+        font-size: 12px;
+        line-height: 1.7;
+        padding: 20px;
+        resize: vertical;
+        outline: none;
+        white-space: pre;
+        overflow: auto;
+      }
+      #output:focus {
+        border-color: var(--muted);
+      }
+
+      footer {
+        width: 100%;
+        max-width: 860px;
+        margin-top: auto;
+        padding: 28px 0 40px;
+        border-top: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+      .footer-libs {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11px;
+        color: var(--muted);
+      }
+      .footer-libs a {
+        color: var(--muted);
+        text-decoration: none;
+        transition: color 0.15s;
+      }
+      .footer-libs a:hover {
+        color: var(--text);
+      }
+      .footer-libs .sep {
+        color: var(--border);
+      }
+      .footer-note {
+        font-size: 10px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--border);
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      .spin {
+        display: inline-block;
+        animation: spin 0.7s linear infinite;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="badge">Client-side · No server · Browser only</div>
+      <h1>
+        PDF
+        <span>→</span>
+        Markdown / DOCX
+      </h1>
+      <p class="subtitle">OCR-powered conversion for scanned documents · All processing stays on your machine</p>
+    </header>
+
+    <div class="card">
+      <div id="dropzone">
+        <input type="file" id="pdfInput" accept=".pdf" />
+        <span class="drop-icon">📄</span>
+        <div class="drop-label">Drop a PDF here or click to browse</div>
+        <div class="drop-sub">Native or scanned PDF · English OCR fallback</div>
+      </div>
+      <div id="file-name"></div>
+      <div class="controls">
+        <button class="btn btn-primary" id="btn-convert" disabled>
+          <span>▶</span>
+          Convert
+        </button>
+      </div>
+      <div id="progress-wrap">
+        <div class="progress-header">
+          <span>Progress</span>
+          <span id="page-counter">—</span>
+        </div>
+        <div id="progress-track"><div id="progress-bar"></div></div>
+        <div id="status-msg"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="output-header">
+        <span class="output-label">Result · Markdown</span>
+        <div class="output-actions">
+          <button class="btn btn-outline" id="btn-copy" disabled>📋 Copy</button>
+          <button class="btn btn-outline" id="btn-md" disabled>⬇ .md</button>
+          <button class="btn btn-outline" id="btn-docx" disabled>⬇ .docx</button>
+        </div>
+      </div>
+      <textarea id="output" readonly placeholder="Converted text will appear here…"></textarea>
+    </div>
+
+    <footer>
+      <div class="footer-libs">
+        <a href="https://mozilla.github.io/pdf.js/" target="_blank" rel="noopener">PDF.js 5</a>
+        <span class="sep">·</span>
+        <a href="https://tesseract.projectnaptha.com/" target="_blank" rel="noopener">Tesseract.js 6</a>
+        <span class="sep">·</span>
+        <a href="https://docx.js.org/" target="_blank" rel="noopener">docx.js 9</a>
+      </div>
+      <span class="footer-note">No data leaves your browser</span>
+    </footer>
+
+    <script type="module">
+      import * as pdfjsLib from "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/5.4.149/pdf.min.mjs";
+      import Tesseract from "https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/6.0.1/tesseract.esm.min.js";
+      import { Document, Packer, Paragraph, TextRun, HeadingLevel } from "https://unpkg.com/docx@9.6.1/dist/index.mjs";
+
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/5.4.149/pdf.worker.min.mjs";
+
+      // Minimum non-whitespace characters for a page to be considered native (not scanned)
+      const NATIVE_TEXT_THRESHOLD = 20;
+
+      let markdownResult = "";
+      let currentFileName = "ocr-result";
+      let selectedFile = null;
+
+      const pdfInput = document.getElementById("pdfInput");
+      const dropzone = document.getElementById("dropzone");
+      const fileNameEl = document.getElementById("file-name");
+      const btnConvert = document.getElementById("btn-convert");
+      const btnCopy = document.getElementById("btn-copy");
+      const btnMd = document.getElementById("btn-md");
+      const btnDocx = document.getElementById("btn-docx");
+      const progressWrap = document.getElementById("progress-wrap");
+      const progressBar = document.getElementById("progress-bar");
+      const pageCounter = document.getElementById("page-counter");
+      const statusMsg = document.getElementById("status-msg");
+      const output = document.getElementById("output");
+
+      function applyFile(file) {
+        if (!file || file.type !== "application/pdf") return;
+        selectedFile = file;
+        currentFileName = file.name.replace(/\.pdf$/i, "");
+        fileNameEl.textContent = `Selected: ${file.name}`;
+        btnConvert.disabled = false;
+      }
+
+      pdfInput.addEventListener("change", () => applyFile(pdfInput.files[0]));
+      dropzone.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        dropzone.classList.add("drag-over");
+      });
+      dropzone.addEventListener("dragleave", () => dropzone.classList.remove("drag-over"));
+      dropzone.addEventListener("drop", (e) => {
+        e.preventDefault();
+        dropzone.classList.remove("drag-over");
+        applyFile(e.dataTransfer.files[0]);
+      });
+
+      function setProgress(pct, label, pageInfo) {
+        progressBar.style.width = pct + "%";
+        statusMsg.textContent = label;
+        statusMsg.className = "";
+        if (pageInfo !== undefined) pageCounter.textContent = pageInfo;
+      }
+      function setDone(label) {
+        statusMsg.textContent = label;
+        statusMsg.className = "ok";
+      }
+      function setError(label) {
+        statusMsg.textContent = label;
+        statusMsg.className = "err";
+      }
+
+      // Convert PDF text content items to a plain string, preserving line breaks via hasEOL.
+      function itemsToText(items) {
+        return items
+          .map((item) => item.str + (item.hasEOL ? "\n" : ""))
+          .join("")
+          .trim();
+      }
+
+      // Normalise extracted text: convert bullet glyphs → markdown list items,
+      // collapse excessive blank lines, strip trailing whitespace per line.
+      function postProcess(text) {
+        return text
+          .split("\n")
+          .map((line) =>
+            line
+              .replace(/^(\s*)●\s*/, "$1- ")
+              .replace(/^(\s*)•\s*/, "$1- ")
+              .trimEnd(),
+          )
+          .join("\n")
+          .replace(/\n{3,}/g, "\n\n");
+      }
+
+      // Render a page to a canvas for OCR (only used on scanned pages).
+      async function renderPage(page, scale = 2.5) {
+        const viewport = page.getViewport({ scale });
+        const canvas = document.createElement("canvas");
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+        return canvas;
+      }
+
+      btnConvert.addEventListener("click", async () => {
+        if (!selectedFile) return;
+
+        markdownResult = "";
+        output.value = "";
+        [btnCopy, btnMd, btnDocx].forEach((b) => (b.disabled = true));
+        progressWrap.classList.add("visible");
+        btnConvert.disabled = true;
+        btnConvert.innerHTML = '<span class="spin">⏳</span> Working…';
+        setProgress(5, "Loading PDF…", "");
+
+        // Tesseract worker is created lazily — only if a scanned page is found.
+        let ocrWorker = null;
+
+        try {
+          const buf = await selectedFile.arrayBuffer();
+          const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+          const total = pdf.numPages;
+
+          let fullMd = `# ${currentFileName}\n\n`;
+
+          for (let i = 1; i <= total; i++) {
+            const pct = 10 + Math.round((85 * (i - 1)) / total);
+            setProgress(pct, `Extracting page ${i}…`, `${i} / ${total}`);
+
+            const page = await pdf.getPage(i);
+            const content = await page.getTextContent();
+            const nativeText = itemsToText(content.items);
+            const isNative = nativeText.replace(/\s/g, "").length >= NATIVE_TEXT_THRESHOLD;
+
+            let pageText;
+
+            if (isNative) {
+              pageText = postProcess(nativeText);
+            } else {
+              // Scanned page — initialise OCR worker on first need
+              if (!ocrWorker) {
+                setProgress(pct, "Initialising OCR engine…", `${i} / ${total}`);
+                ocrWorker = await Tesseract.createWorker("eng", 1, { logger: () => {} });
+              }
+              setProgress(pct + 1, `Running OCR on page ${i}…`, `${i} / ${total}`);
+              const canvas = await renderPage(page, 2.5);
+              const {
+                data: { text },
+              } = await ocrWorker.recognize(canvas);
+              pageText = postProcess(text.trim());
+            }
+
+            fullMd += `## Page ${i}\n\n${pageText}\n\n---\n\n`;
+          }
+
+          markdownResult = fullMd.trim();
+          output.value = markdownResult;
+
+          setProgress(100, "", `${total} / ${total}`);
+          setDone(`✓ Done — ${total} page${total !== 1 ? "s" : ""} converted`);
+          [btnCopy, btnMd, btnDocx].forEach((b) => (b.disabled = false));
+        } catch (err) {
+          console.error(err);
+          setError(`✗ ${err.message}`);
+        } finally {
+          if (ocrWorker) await ocrWorker.terminate();
+          btnConvert.disabled = false;
+          btnConvert.innerHTML = "<span>▶</span> Convert";
+        }
+      });
+
+      btnMd.addEventListener("click", () => {
+        if (!markdownResult) return;
+        download(new Blob([markdownResult], { type: "text/markdown" }), `${currentFileName}.md`);
+      });
+
+      btnDocx.addEventListener("click", async () => {
+        if (!markdownResult) return;
+
+        const children = markdownResult.split("\n").map((line) => {
+          if (line.startsWith("# "))
+            return new Paragraph({
+              heading: HeadingLevel.HEADING_1,
+              children: [new TextRun({ text: line.slice(2), bold: true })],
+            });
+          if (line.startsWith("## "))
+            return new Paragraph({
+              heading: HeadingLevel.HEADING_2,
+              children: [new TextRun({ text: line.slice(3), bold: true })],
+            });
+          if (line.trim() === "---") return new Paragraph({ children: [new TextRun({ text: "" })] });
+          return new Paragraph({ children: [new TextRun({ text: line })] });
+        });
+
+        const doc = new Document({ sections: [{ properties: {}, children }] });
+        download(await Packer.toBlob(doc), `${currentFileName}.docx`);
+      });
+
+      btnCopy.addEventListener("click", () => {
+        if (!markdownResult) return;
+        navigator.clipboard.writeText(markdownResult).then(() => {
+          btnCopy.textContent = "✓ Copied!";
+          setTimeout(() => {
+            btnCopy.textContent = "📋 Copy";
+          }, 1800);
+        });
+      });
+
+      function download(blob, filename) {
+        const a = Object.assign(document.createElement("a"), {
+          href: URL.createObjectURL(blob),
+          download: filename,
+        });
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+      }
+    </script>
+  </body>
+</html>
