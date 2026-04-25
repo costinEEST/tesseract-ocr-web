@@ -391,6 +391,15 @@
         currentFileName = file.name.replace(/\.pdf$/i, "");
         fileNameEl.textContent = `Selected: ${file.name}`;
         btnConvert.disabled = false;
+
+        markdownResult = "";
+        output.value = "";
+        [btnCopy, btnMd, btnDocx].forEach((b) => (b.disabled = true));
+        progressWrap.classList.remove("visible");
+        progressBar.style.width = "0%";
+        statusMsg.textContent = "";
+        statusMsg.className = "";
+        pageCounter.textContent = "—";
       }
 
       pdfInput.addEventListener("change", () => applyFile(pdfInput.files[0]));
