@@ -2,8 +2,6 @@
 
 A client-side tool for converting PDFs to Markdown or DOCX. No server, no uploads — all processing runs in your browser.
 
----
-
 ## How it works
 
 The converter uses two strategies depending on the PDF type:
@@ -43,13 +41,47 @@ The result appears in the text area as Markdown. Each page is wrapped in a `## P
 
 ## Supported PDF types
 
-| Type                                    | Method                     | Speed  |
-| --------------------------------------- | -------------------------- | ------ |
-| Native / selectable text                | PDF.js text extraction     | Fast   |
-| Scanned / image-only                    | Tesseract.js OCR (English) | Slower |
-| Mixed (some native, some scanned pages) | Per-page auto-detection    | Varies |
+| Type                                    | Method                  | Speed  |
+| --------------------------------------- | ----------------------- | ------ |
+| Native / selectable text                | PDF.js text extraction  | Fast   |
+| Scanned / image-only                    | Tesseract.js OCR        | Slower |
+| Mixed (some native, some scanned pages) | Per-page auto-detection | Varies |
 
-> OCR is English-only. Accuracy depends on scan quality — higher resolution scans produce better results.
+> Accuracy depends on scan quality — higher resolution scans produce better results.
+
+---
+
+## Language support
+
+Language selection only affects **scanned pages**. Native PDFs are extracted directly by PDF.js and are unaffected by this setting.
+
+Tesseract.js supports 100+ languages. The most common European ones:
+
+| Language  | Code  |
+| --------- | ----- |
+| English   | `eng` |
+| Romanian  | `ron` |
+| German    | `deu` |
+| Hungarian | `hun` |
+| French    | `fra` |
+| Spanish   | `spa` |
+| Italian   | `ita` |
+| Polish    | `pol` |
+| Czech     | `ces` |
+| Slovak    | `slk` |
+| Croatian  | `hrv` |
+| Bulgarian | `bul` |
+| Russian   | `rus` |
+| Ukrainian | `ukr` |
+| Dutch     | `nld` |
+| Greek     | `ell` |
+| Turkish   | `tur` |
+
+For a full list of supported language codes see the [Tesseract.js language list](https://github.com/naptha/tesseract.js/blob/master/docs/tesseract_lang_list.md).
+
+### Multiple languages
+
+Tesseract accepts multiple languages simultaneously, e.g. `eng+ron+deu`. Each additional language increases the model download size and extends OCR initialisation time, so select only what the document actually contains.
 
 ---
 
