@@ -31,7 +31,14 @@
         --focus: #5b8dee;
       }
 
-      /* ── Body is the top-level container ── */
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
       body {
         container-type: inline-size;
         container-name: page;
@@ -40,14 +47,12 @@
         color: var(--text);
       }
 
-      /* ── Global focus style — visible on dark bg ── */
       :focus-visible {
         outline: 2px solid var(--focus);
         outline-offset: 3px;
         border-radius: 3px;
       }
 
-      /* ── App shell ── */
       .app {
         min-height: 100dvh;
         display: grid;
@@ -123,15 +128,12 @@
         border-color: var(--accent);
         background: rgba(232, 201, 126, 0.04);
       }
-      /* The file input covers the entire dropzone and IS the keyboard target */
       #dropzone input[type="file"] {
         position: absolute;
         inset: 0;
         opacity: 0;
         cursor: pointer;
-        /* preserve focusability — do not add display:none or visibility:hidden */
       }
-      /* Show focus ring on the dropzone container when the input inside is focused */
       #dropzone:has(input:focus-visible) {
         outline: 2px solid var(--focus);
         outline-offset: 2px;
@@ -156,6 +158,71 @@
         font-size: 12px;
         color: var(--accent);
         min-height: 18px;
+      }
+
+      /* ── Separator select ── */
+      .separator-field {
+        margin-top: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .separator-field label {
+        font-size: 10px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      /* Hint text shown below the select */
+      .separator-hint {
+        font-size: 10px;
+        color: var(--muted);
+        letter-spacing: 0.04em;
+        min-height: 14px;
+        transition: opacity 0.15s;
+      }
+      /* Custom select wrapper — needed so we can style the arrow */
+      .select-wrap {
+        position: relative;
+        display: block;
+      }
+      .select-wrap::after {
+        content: "▾";
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--muted);
+        pointer-events: none;
+        font-size: 12px;
+      }
+      #separator-select {
+        width: 100%;
+        appearance: none;
+        -webkit-appearance: none;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        color: var(--text);
+        font-family: "DM Mono", monospace;
+        font-size: 12px;
+        padding: 9px 36px 9px 12px;
+        cursor: pointer;
+        transition: border-color 0.15s;
+        outline: none;
+      }
+      #separator-select:hover {
+        border-color: var(--muted);
+      }
+      #separator-select:focus-visible {
+        border-color: var(--focus);
+        outline: 2px solid var(--focus);
+        outline-offset: 2px;
+      }
+      /* Option elements inherit bg/color in most browsers */
+      #separator-select option {
+        background: var(--surface);
+        color: var(--text);
       }
 
       /* ── Controls ── */
@@ -326,7 +393,6 @@
         color: var(--muted);
       }
 
-      /* Hidden from view but readable by screen readers */
       .sr-only {
         position: absolute;
         width: 1px;
@@ -339,7 +405,6 @@
         border: 0;
       }
 
-      /* ── Spinner ── */
       @keyframes spin {
         to {
           transform: rotate(360deg);
@@ -399,7 +464,6 @@
 
       <main>
         <div class="card upload-card">
-          <!-- dropzone is a visual affordance; the file input inside is the real interactive target -->
           <div id="dropzone">
             <input
               type="file"
@@ -413,6 +477,25 @@
           </div>
 
           <div id="file-name" aria-live="polite" aria-atomic="true"></div>
+
+          <!--
+            Separator selector sits between file selection and the Convert button.
+            This is the natural decision point: the user has chosen their file and
+            is about to trigger conversion, so they can set output options here
+            before committing — analogous to print settings before hitting Print.
+          -->
+          <div class="separator-field">
+            <label for="separator-select">Page separator</label>
+            <div class="select-wrap">
+              <select id="separator-select" aria-describedby="separator-hint">
+                <option value="hr">Horizontal rule ———</option>
+                <option value="heading-hr">Heading + rule ## Page N / ———</option>
+                <option value="blank-lines" selected>Double blank line ↵↵</option>
+                <option value="html-comment">HTML comment &lt;!-- Page N --&gt;</option>
+              </select>
+            </div>
+            <span id="separator-hint" class="separator-hint" aria-live="polite"></span>
+          </div>
 
           <div class="controls">
             <button class="btn btn-primary" id="btn-convert" disabled aria-disabled="true">
@@ -429,7 +512,6 @@
             <div id="progress-track" aria-hidden="true">
               <div id="progress-bar"></div>
             </div>
-            <!-- sr-only progressbar keeps aria-valuenow in sync; the visual bar is aria-hidden -->
             <div
               id="progress-indicator"
               role="progressbar"
@@ -506,13 +588,60 @@
 
       const NATIVE_TEXT_THRESHOLD = 20;
 
-      let markdownResult = "";
-      let currentFileName = "ocr-result";
-      let selectedFile = null;
+      // ── Separator modes ──────────────────────────────────────────────────────
+      //
+      // Each mode is an object with:
+      //   hint      – short description shown below the select (aria-live)
+      //   between   – function(pageIndex, total) → string inserted BETWEEN pages
+      //   wrap      – optional function(text, pageIndex) → wraps each page's text
+      //               (undefined = no wrapping, text passed through as-is)
+      //   docxBlock – function(pageIndex) → array of docx Paragraph nodes to insert
+      //               between pages when exporting to .docx
+      //
+      const SEPARATOR_MODES = {
+        hr: {
+          hint: "A --- rule is inserted between pages. Clean and widely supported.",
+          between: () => "\n\n---\n\n",
+          wrap: undefined,
+          docxBlock: () => [new Paragraph({ children: [new TextRun({ text: "─".repeat(40) })] })],
+        },
+        "heading-hr": {
+          hint: "Each page gets a ## Page N heading followed by a --- rule.",
+          between: () => "\n\n---\n\n",
+          wrap: (text, i) => `## Page ${i}\n\n${text}`,
+          docxBlock: (i) => [
+            new Paragraph({
+              heading: HeadingLevel.HEADING_2,
+              children: [new TextRun({ text: `Page ${i}`, bold: true })],
+            }),
+          ],
+        },
+        "blank-lines": {
+          hint: "Two blank lines separate pages — invisible in rendered output, ideal for prose.",
+          // Two blank lines = three consecutive newlines.
+          // postProcess collapses \n{3,} → \n\n, so we emit the separator AFTER
+          // joining; pages themselves are kept as-is here.
+          between: () => "\n\n\n",
+          wrap: undefined,
+          docxBlock: () => [
+            new Paragraph({ children: [new TextRun({ text: "" })] }),
+            new Paragraph({ children: [new TextRun({ text: "" })] }),
+          ],
+        },
+        "html-comment": {
+          hint: "<!-- Page N --> markers are invisible when rendered but machine-readable.",
+          between: (i) => `\n\n<!-- Page ${i} -->\n\n`,
+          wrap: undefined,
+          docxBlock: (i) => [new Paragraph({ children: [new TextRun({ text: `[Page ${i}]`, color: "999999" })] })],
+        },
+      };
 
+      // ── DOM refs ─────────────────────────────────────────────────────────────
       const pdfInput = document.getElementById("pdfInput");
       const dropzone = document.getElementById("dropzone");
       const fileNameEl = document.getElementById("file-name");
+      const separatorSelect = document.getElementById("separator-select");
+      const separatorHint = document.getElementById("separator-hint");
       const btnConvert = document.getElementById("btn-convert");
       const btnCopy = document.getElementById("btn-copy");
       const btnMd = document.getElementById("btn-md");
@@ -524,6 +653,19 @@
       const statusMsg = document.getElementById("status-msg");
       const output = document.getElementById("output");
 
+      let markdownResult = "";
+      let currentFileName = "ocr-result";
+      let selectedFile = null;
+
+      // ── Separator select hint ─────────────────────────────────────────────
+      function updateHint() {
+        const mode = SEPARATOR_MODES[separatorSelect.value];
+        separatorHint.textContent = mode ? mode.hint : "";
+      }
+      separatorSelect.addEventListener("change", updateHint);
+      updateHint(); // populate on load
+
+      // ── Helpers ──────────────────────────────────────────────────────────────
       function setButtonEnabled(btn, enabled) {
         btn.disabled = !enabled;
         btn.setAttribute("aria-disabled", String(!enabled));
@@ -605,8 +747,11 @@
         return canvas;
       }
 
+      // ── Conversion ───────────────────────────────────────────────────────────
       btnConvert.addEventListener("click", async () => {
         if (!selectedFile) return;
+
+        const mode = SEPARATOR_MODES[separatorSelect.value] ?? SEPARATOR_MODES["blank-lines"];
 
         markdownResult = "";
         output.value = "";
@@ -624,7 +769,10 @@
           const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
           const total = pdf.numPages;
 
-          let fullMd = `# ${currentFileName}\n\n`;
+          // Collect each page's processed text first, then join with the
+          // chosen separator. This keeps separator logic out of the loop body
+          // and avoids a trailing separator after the last page.
+          const pages = [];
 
           for (let i = 1; i <= total; i++) {
             const pct = 10 + Math.round((85 * (i - 1)) / total);
@@ -652,10 +800,23 @@
               pageText = postProcess(text.trim());
             }
 
-            fullMd += `## Page ${i}\n\n${pageText}\n\n---\n\n`;
+            // Apply optional per-page wrapper (e.g. heading-hr prepends "## Page N")
+            pages.push(mode.wrap ? mode.wrap(pageText, i) : pageText);
           }
 
-          markdownResult = fullMd.trim();
+          // Join pages with the chosen separator.
+          // between(i) receives the 1-based index of the page that FOLLOWS
+          // the separator (consistent with html-comment mode which labels
+          // the page about to begin).
+          const bodyParts = [];
+          for (let i = 0; i < pages.length; i++) {
+            bodyParts.push(pages[i]);
+            if (i < pages.length - 1) {
+              bodyParts.push(mode.between(i + 2, total));
+            }
+          }
+
+          markdownResult = (`# ${currentFileName}\n\n` + bodyParts.join("")).trim();
           output.value = markdownResult;
 
           setProgress(100, "", `${total} / ${total}`);
@@ -672,6 +833,7 @@
         }
       });
 
+      // ── Export ───────────────────────────────────────────────────────────────
       btnMd.addEventListener("click", () => {
         if (!markdownResult) return;
         download(new Blob([markdownResult], { type: "text/markdown" }), `${currentFileName}.md`);
@@ -680,20 +842,64 @@
       btnDocx.addEventListener("click", async () => {
         if (!markdownResult) return;
 
-        const children = markdownResult.split("\n").map((line) => {
+        const mode = SEPARATOR_MODES[separatorSelect.value] ?? SEPARATOR_MODES["blank-lines"];
+        const lines = markdownResult.split("\n");
+        const children = [];
+
+        for (let li = 0; li < lines.length; li++) {
+          const line = lines[li];
+
+          // Detect the "between" markers in the raw markdown so we can
+          // replace them with proper docx separator nodes.
+          const isHr = line.trim() === "---";
+          const isHtmlComment = /^<!--\s*Page \d+\s*-->$/.test(line.trim());
+
+          // For blank-lines mode the separator is invisible in text, so we
+          // detect two consecutive empty lines and emit the docx separator.
+          const isDoubleBlank =
+            separatorSelect.value === "blank-lines" &&
+            line.trim() === "" &&
+            li + 1 < lines.length &&
+            lines[li + 1].trim() === "";
+
+          if (separatorSelect.value === "hr" && isHr) {
+            children.push(...mode.docxBlock());
+            continue;
+          }
+          if (separatorSelect.value === "heading-hr" && isHr) {
+            children.push(...mode.docxBlock());
+            continue;
+          }
+          if (separatorSelect.value === "html-comment" && isHtmlComment) {
+            // Extract page number from comment for the docx label
+            const m = line.match(/Page (\d+)/);
+            const pageNum = m ? parseInt(m[1], 10) : 0;
+            children.push(...mode.docxBlock(pageNum));
+            continue;
+          }
+          if (isDoubleBlank) {
+            children.push(...mode.docxBlock());
+            // Skip the second blank line so we don't emit two separator blocks
+            li++;
+            continue;
+          }
+
           if (line.startsWith("# "))
-            return new Paragraph({
-              heading: HeadingLevel.HEADING_1,
-              children: [new TextRun({ text: line.slice(2), bold: true })],
-            });
-          if (line.startsWith("## "))
-            return new Paragraph({
-              heading: HeadingLevel.HEADING_2,
-              children: [new TextRun({ text: line.slice(3), bold: true })],
-            });
-          if (line.trim() === "---") return new Paragraph({ children: [new TextRun({ text: "" })] });
-          return new Paragraph({ children: [new TextRun({ text: line })] });
-        });
+            children.push(
+              new Paragraph({
+                heading: HeadingLevel.HEADING_1,
+                children: [new TextRun({ text: line.slice(2), bold: true })],
+              }),
+            );
+          else if (line.startsWith("## "))
+            children.push(
+              new Paragraph({
+                heading: HeadingLevel.HEADING_2,
+                children: [new TextRun({ text: line.slice(3), bold: true })],
+              }),
+            );
+          else children.push(new Paragraph({ children: [new TextRun({ text: line })] }));
+        }
 
         const doc = new Document({ sections: [{ properties: {}, children }] });
         download(await Packer.toBlob(doc), `${currentFileName}.docx`);

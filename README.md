@@ -30,15 +30,26 @@ Navigate to the GitHub Pages URL. No installation or sign-in required.
 
 Either **drag and drop** a `.pdf` file onto the drop zone, or click it to open a file browser. The Convert button becomes active once a file is selected.
 
-### 3. Convert
+### 3. Choose a page separator
+
+Select how pages are separated in the output using the **Page separator** dropdown. The setting only takes effect at conversion time — changing it afterwards requires re-converting.
+
+| Option                        | Output                          | Best for                                              |
+| ----------------------------- | ------------------------------- | ----------------------------------------------------- |
+| Horizontal rule               | `---` between pages             | General use, broadly supported                        |
+| Heading + rule                | `## Page N` heading + `---`     | When page numbers need to be visible                  |
+| Double blank line _(default)_ | Two empty lines                 | Prose — no visual noise in rendered output            |
+| HTML comment                  | `<!-- Page N -->` between pages | Pipelines — invisible when rendered, machine-readable |
+
+### 4. Convert
 
 Click **Convert**. A progress bar tracks extraction page by page. Native pages process in under a second each; scanned pages take longer while OCR runs.
 
-### 4. Review the output
+### 5. Review the output
 
-The result appears in the text area as Markdown. Each page is wrapped in a `## Page N` heading and separated by `---`. You can edit the text directly in the area before exporting.
+The result appears in the text area as Markdown. You can edit the text directly in the area before exporting.
 
-### 5. Export
+### 6. Export
 
 | Button  | Output                                            |
 | ------- | ------------------------------------------------- |
