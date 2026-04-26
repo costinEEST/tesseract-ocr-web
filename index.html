@@ -671,8 +671,16 @@
         btn.setAttribute("aria-disabled", String(!enabled));
       }
 
-      function applyFile(file) {
-        if (!file || file.type !== "application/pdf") return;
+      async function applyFile(file) {
+        if (!file) return;
+
+        const header = await file.slice(0, 5).text();
+
+        if (header !== "%PDF-") {
+          fileNameEl.textContent = "✗ Not a valid PDF file.";
+          return;
+        }
+
         selectedFile = file;
         currentFileName = file.name.replace(/\.pdf$/i, "");
         fileNameEl.textContent = `Selected: ${file.name}`;
@@ -689,17 +697,17 @@
         pageCounter.textContent = "—";
       }
 
-      pdfInput.addEventListener("change", () => applyFile(pdfInput.files[0]));
+      pdfInput.addEventListener("change", async () => await applyFile(pdfInput.files[0]));
 
       dropzone.addEventListener("dragover", (e) => {
         e.preventDefault();
         dropzone.classList.add("drag-over");
       });
       dropzone.addEventListener("dragleave", () => dropzone.classList.remove("drag-over"));
-      dropzone.addEventListener("drop", (e) => {
+      dropzone.addEventListener("drop", async (e) => {
         e.preventDefault();
         dropzone.classList.remove("drag-over");
-        applyFile(e.dataTransfer.files[0]);
+        await applyFile(e.dataTransfer.files[0]);
       });
 
       function setProgress(pct, label, pageInfo) {
