@@ -24,10 +24,11 @@
         --accent: #e8c97e;
         --accent2: #5b8dee;
         --text: #d4d6dc;
-        --muted: #656a78;
+        --muted: #808899;
         --success: #4caf7d;
         --error: #e05252;
         --radius: 6px;
+        --focus: #5b8dee;
       }
 
       /* ── Body is the top-level container ── */
@@ -39,7 +40,14 @@
         color: var(--text);
       }
 
-      /* ── App shell: mobile-first, single column, scrollable ── */
+      /* ── Global focus style — visible on dark bg ── */
+      :focus-visible {
+        outline: 2px solid var(--focus);
+        outline-offset: 3px;
+        border-radius: 3px;
+      }
+
+      /* ── App shell ── */
       .app {
         min-height: 100dvh;
         display: grid;
@@ -82,7 +90,7 @@
         letter-spacing: 0.06em;
       }
 
-      /* ── Main: single column on mobile/tablet ── */
+      /* ── Main ── */
       main {
         display: grid;
         grid-template-columns: 1fr;
@@ -115,11 +123,19 @@
         border-color: var(--accent);
         background: rgba(232, 201, 126, 0.04);
       }
+      /* The file input covers the entire dropzone and IS the keyboard target */
       #dropzone input[type="file"] {
         position: absolute;
         inset: 0;
         opacity: 0;
         cursor: pointer;
+        /* preserve focusability — do not add display:none or visibility:hidden */
+      }
+      /* Show focus ring on the dropzone container when the input inside is focused */
+      #dropzone:has(input:focus-visible) {
+        outline: 2px solid var(--focus);
+        outline-offset: 2px;
+        border-radius: var(--radius);
       }
       .drop-icon {
         font-size: 30px;
@@ -242,20 +258,20 @@
         flex-wrap: wrap;
         gap: 8px;
       }
+      .output-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
       .output-label {
         font-size: 11px;
         letter-spacing: 0.1em;
         text-transform: uppercase;
         color: var(--muted);
       }
-      .output-actions {
-        display: flex;
-        gap: 8px;
-        flex-wrap: wrap;
-      }
       #output {
         width: 100%;
-        height: 360px; /* fallback for mobile */
+        height: 360px;
         background: var(--bg);
         border: 1px solid var(--border);
         border-radius: var(--radius);
@@ -269,8 +285,10 @@
         white-space: pre;
         overflow: auto;
       }
-      #output:focus {
-        border-color: var(--muted);
+      #output:focus-visible {
+        border-color: var(--focus);
+        outline: 2px solid var(--focus);
+        outline-offset: 2px;
       }
 
       /* ── Footer ── */
@@ -305,7 +323,20 @@
         font-size: 10px;
         letter-spacing: 0.08em;
         text-transform: uppercase;
-        color: var(--border);
+        color: var(--muted);
+      }
+
+      /* Hidden from view but readable by screen readers */
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
       }
 
       /* ── Spinner ── */
@@ -319,48 +350,34 @@
         animation: spin 0.7s linear infinite;
       }
 
-      /* ════════════════════════════════════════════════════════════
-         Desktop: two-column, no vertical scroll
-         Triggered when the page container (body) is ≥ 700px wide.
-         ════════════════════════════════════════════════════════════ */
+      /* ══ Desktop: two-column, no vertical scroll ══ */
       @container page (min-width: 700px) {
-        /* Full-viewport shell, no overflow */
         .app {
           height: 100dvh;
           overflow: hidden;
           padding: 20px;
           gap: 12px;
         }
-
-        /* Two columns: fixed upload | fluid output */
         main {
           grid-template-columns: 340px 1fr;
           align-items: stretch;
           overflow: hidden;
           min-height: 0;
         }
-
-        /* Upload card scrolls internally if needed */
         .upload-card {
           overflow-y: auto;
           min-height: 0;
         }
-
-        /* Output card fills remaining height */
         .output-card {
           min-height: 0;
           overflow: hidden;
         }
-
-        /* Textarea grows to fill card instead of fixed 360px */
         #output {
           flex: 1;
           height: auto;
           min-height: 0;
           resize: none;
         }
-
-        /* Tighter dropzone in the narrower left column */
         #dropzone {
           padding: 28px 16px;
         }
@@ -370,10 +387,11 @@
   <body>
     <div class="app">
       <header>
-        <div class="badge">Client-side · No server · Browser only</div>
+        <div class="badge" aria-hidden="true">Client-side · No server · Browser only</div>
         <h1>
           PDF
-          <span>→</span>
+          <span aria-hidden="true">→</span>
+          <span class="sr-only">to</span>
           Markdown / DOCX
         </h1>
         <p class="subtitle">OCR-powered conversion for scanned documents · All processing stays on your machine</p>
@@ -381,48 +399,97 @@
 
       <main>
         <div class="card upload-card">
+          <!-- dropzone is a visual affordance; the file input inside is the real interactive target -->
           <div id="dropzone">
-            <input type="file" id="pdfInput" accept=".pdf" />
-            <span class="drop-icon">📄</span>
-            <div class="drop-label">Drop a PDF here or click to browse</div>
-            <div class="drop-sub">Native or scanned PDF · English OCR fallback</div>
+            <input
+              type="file"
+              id="pdfInput"
+              accept=".pdf"
+              aria-label="Choose a PDF file to convert"
+              aria-describedby="drop-hint" />
+            <span class="drop-icon" aria-hidden="true">📄</span>
+            <div class="drop-label" aria-hidden="true">Drop a PDF here or click to browse</div>
+            <div class="drop-sub" id="drop-hint">Native or scanned PDF · English OCR fallback</div>
           </div>
-          <div id="file-name"></div>
+
+          <div id="file-name" aria-live="polite" aria-atomic="true"></div>
+
           <div class="controls">
-            <button class="btn btn-primary" id="btn-convert" disabled>
-              <span>▶</span>
+            <button class="btn btn-primary" id="btn-convert" disabled aria-disabled="true">
+              <span aria-hidden="true">▶</span>
               Convert
             </button>
           </div>
-          <div id="progress-wrap">
+
+          <div id="progress-wrap" role="region" aria-label="Conversion progress" aria-live="polite">
             <div class="progress-header">
-              <span>Progress</span>
-              <span id="page-counter">—</span>
+              <span aria-hidden="true">Progress</span>
+              <span id="page-counter" aria-live="off">—</span>
             </div>
-            <div id="progress-track"><div id="progress-bar"></div></div>
-            <div id="status-msg"></div>
+            <div id="progress-track" aria-hidden="true">
+              <div id="progress-bar"></div>
+            </div>
+            <!-- sr-only progressbar keeps aria-valuenow in sync; the visual bar is aria-hidden -->
+            <div
+              id="progress-indicator"
+              role="progressbar"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              aria-valuenow="0"
+              aria-label="Conversion progress"
+              class="sr-only"></div>
+            <div id="status-msg" aria-live="assertive" aria-atomic="true"></div>
           </div>
         </div>
 
         <div class="card output-card">
           <div class="output-header">
-            <span class="output-label">Result · Markdown</span>
-            <div class="output-actions">
-              <button class="btn btn-outline" id="btn-copy" disabled>📋 Copy</button>
-              <button class="btn btn-outline" id="btn-md" disabled>⬇ .md</button>
-              <button class="btn btn-outline" id="btn-docx" disabled>⬇ .docx</button>
+            <label for="output" class="output-label">Result · Markdown</label>
+            <div class="output-actions" role="group" aria-label="Export options">
+              <button
+                class="btn btn-outline"
+                id="btn-copy"
+                disabled
+                aria-disabled="true"
+                aria-label="Copy markdown to clipboard">
+                <span aria-hidden="true">📋</span>
+                Copy
+              </button>
+              <button
+                class="btn btn-outline"
+                id="btn-md"
+                disabled
+                aria-disabled="true"
+                aria-label="Download as Markdown file">
+                <span aria-hidden="true">⬇</span>
+                .md
+              </button>
+              <button
+                class="btn btn-outline"
+                id="btn-docx"
+                disabled
+                aria-disabled="true"
+                aria-label="Download as Word document">
+                <span aria-hidden="true">⬇</span>
+                .docx
+              </button>
             </div>
           </div>
-          <textarea id="output" readonly placeholder="Converted text will appear here…"></textarea>
+          <textarea
+            id="output"
+            readonly
+            aria-readonly="true"
+            aria-label="Converted markdown output"
+            placeholder="Converted text will appear here…"></textarea>
         </div>
       </main>
 
       <footer>
-        <div class="footer-libs">
+        <div class="footer-libs" aria-label="Libraries used">
           <a href="https://mozilla.github.io/pdf.js/" target="_blank" rel="noopener">PDF.js 5</a>
-          <span class="sep">·</span>
+          <span class="sep" aria-hidden="true">·</span>
           <a href="https://tesseract.projectnaptha.com/" target="_blank" rel="noopener">Tesseract.js 6</a>
-          <span class="sep">·</span>
+          <span class="sep" aria-hidden="true">·</span>
           <a href="https://docx.js.org/" target="_blank" rel="noopener">docx.js 9</a>
         </div>
         <span class="footer-note">No data leaves your browser</span>
@@ -452,28 +519,36 @@
       const btnDocx = document.getElementById("btn-docx");
       const progressWrap = document.getElementById("progress-wrap");
       const progressBar = document.getElementById("progress-bar");
+      const progressIndicator = document.getElementById("progress-indicator");
       const pageCounter = document.getElementById("page-counter");
       const statusMsg = document.getElementById("status-msg");
       const output = document.getElementById("output");
+
+      function setButtonEnabled(btn, enabled) {
+        btn.disabled = !enabled;
+        btn.setAttribute("aria-disabled", String(!enabled));
+      }
 
       function applyFile(file) {
         if (!file || file.type !== "application/pdf") return;
         selectedFile = file;
         currentFileName = file.name.replace(/\.pdf$/i, "");
         fileNameEl.textContent = `Selected: ${file.name}`;
-        btnConvert.disabled = false;
+        setButtonEnabled(btnConvert, true);
 
         markdownResult = "";
         output.value = "";
-        [btnCopy, btnMd, btnDocx].forEach((b) => (b.disabled = true));
+        [btnCopy, btnMd, btnDocx].forEach((b) => setButtonEnabled(b, false));
         progressWrap.classList.remove("visible");
         progressBar.style.width = "0%";
+        progressIndicator.setAttribute("aria-valuenow", "0");
         statusMsg.textContent = "";
         statusMsg.className = "";
         pageCounter.textContent = "—";
       }
 
       pdfInput.addEventListener("change", () => applyFile(pdfInput.files[0]));
+
       dropzone.addEventListener("dragover", (e) => {
         e.preventDefault();
         dropzone.classList.add("drag-over");
@@ -487,6 +562,7 @@
 
       function setProgress(pct, label, pageInfo) {
         progressBar.style.width = pct + "%";
+        progressIndicator.setAttribute("aria-valuenow", String(Math.round(pct)));
         statusMsg.textContent = label;
         statusMsg.className = "";
         if (pageInfo !== undefined) pageCounter.textContent = pageInfo;
@@ -534,10 +610,11 @@
 
         markdownResult = "";
         output.value = "";
-        [btnCopy, btnMd, btnDocx].forEach((b) => (b.disabled = true));
+        [btnCopy, btnMd, btnDocx].forEach((b) => setButtonEnabled(b, false));
         progressWrap.classList.add("visible");
-        btnConvert.disabled = true;
-        btnConvert.innerHTML = '<span class="spin">⏳</span> Working…';
+        setButtonEnabled(btnConvert, false);
+        btnConvert.setAttribute("aria-busy", "true");
+        btnConvert.innerHTML = '<span class="spin" aria-hidden="true">⏳</span> Working…';
         setProgress(5, "Loading PDF…", "");
 
         let ocrWorker = null;
@@ -583,14 +660,15 @@
 
           setProgress(100, "", `${total} / ${total}`);
           setDone(`✓ Done — ${total} page${total !== 1 ? "s" : ""} converted`);
-          [btnCopy, btnMd, btnDocx].forEach((b) => (b.disabled = false));
+          [btnCopy, btnMd, btnDocx].forEach((b) => setButtonEnabled(b, true));
         } catch (err) {
           console.error(err);
           setError(`✗ ${err.message}`);
         } finally {
           if (ocrWorker) await ocrWorker.terminate();
-          btnConvert.disabled = false;
-          btnConvert.innerHTML = "<span>▶</span> Convert";
+          setButtonEnabled(btnConvert, true);
+          btnConvert.removeAttribute("aria-busy");
+          btnConvert.innerHTML = '<span aria-hidden="true">▶</span> Convert';
         }
       });
 
@@ -626,7 +704,7 @@
         navigator.clipboard.writeText(markdownResult).then(() => {
           btnCopy.textContent = "✓ Copied!";
           setTimeout(() => {
-            btnCopy.textContent = "📋 Copy";
+            btnCopy.innerHTML = '<span aria-hidden="true">📋</span> Copy';
           }, 1800);
         });
       });
