@@ -2,6 +2,15 @@
 
 A client-side tool for converting PDFs to Markdown or DOCX. No server, no uploads — all processing runs in your browser.
 
+## Table of contents
+
+- [How it works](#how-it-works)
+- [Usage](#usage)
+- [Supported PDF types](#supported-pdf-types)
+- [Language support](#language-support)
+- [Privacy](#privacy)
+- [Libraries used](#libraries-used)
+
 ## How it works
 
 The converter uses two strategies depending on the PDF type:
