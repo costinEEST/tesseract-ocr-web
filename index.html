@@ -30,23 +30,28 @@
         --radius: 6px;
       }
 
+      /* ── Body is the top-level container ── */
       body {
+        container-type: inline-size;
+        container-name: page;
         font-family: "DM Mono", monospace;
         background: var(--bg);
         color: var(--text);
-        min-height: 100vh;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        padding: 48px 20px 0;
       }
 
+      /* ── App shell: mobile-first, single column, scrollable ── */
+      .app {
+        min-height: 100dvh;
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        padding: 24px 16px 16px;
+        gap: 16px;
+      }
+
+      /* ── Header ── */
       header {
-        width: 100%;
-        max-width: 860px;
-        margin-bottom: 48px;
         border-bottom: 1px solid var(--border);
-        padding-bottom: 32px;
+        padding-bottom: 16px;
       }
       .badge {
         display: inline-block;
@@ -57,11 +62,11 @@
         border: 1px solid var(--accent);
         padding: 3px 8px;
         border-radius: 3px;
-        margin-bottom: 18px;
+        margin-bottom: 12px;
       }
       h1 {
         font-family: "Playfair Display", serif;
-        font-size: clamp(28px, 5vw, 48px);
+        font-size: clamp(24px, 5cqi, 42px);
         font-weight: 900;
         line-height: 1.1;
         letter-spacing: -0.02em;
@@ -71,26 +76,33 @@
         color: var(--accent);
       }
       .subtitle {
-        margin-top: 12px;
-        font-size: 12px;
+        margin-top: 8px;
+        font-size: 11px;
         color: var(--muted);
         letter-spacing: 0.06em;
       }
 
+      /* ── Main: single column on mobile/tablet ── */
+      main {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 16px;
+        align-items: start;
+      }
+
+      /* ── Cards ── */
       .card {
-        width: 100%;
-        max-width: 860px;
         background: var(--surface);
         border: 1px solid var(--border);
         border-radius: var(--radius);
-        padding: 32px;
-        margin-bottom: 24px;
+        padding: 24px;
       }
 
+      /* ── Dropzone ── */
       #dropzone {
         border: 2px dashed var(--border);
         border-radius: var(--radius);
-        padding: 48px 24px;
+        padding: 36px 20px;
         text-align: center;
         cursor: pointer;
         transition:
@@ -110,8 +122,8 @@
         cursor: pointer;
       }
       .drop-icon {
-        font-size: 36px;
-        margin-bottom: 12px;
+        font-size: 30px;
+        margin-bottom: 10px;
         display: block;
       }
       .drop-label {
@@ -124,23 +136,24 @@
         margin-top: 6px;
       }
       #file-name {
-        margin-top: 16px;
+        margin-top: 14px;
         font-size: 12px;
         color: var(--accent);
         min-height: 18px;
       }
 
+      /* ── Controls ── */
       .controls {
         display: flex;
         gap: 12px;
         flex-wrap: wrap;
-        margin-top: 24px;
+        margin-top: 20px;
       }
       .btn {
         display: inline-flex;
         align-items: center;
         gap: 8px;
-        padding: 10px 22px;
+        padding: 10px 20px;
         font-family: "DM Mono", monospace;
         font-size: 12px;
         font-weight: 500;
@@ -175,8 +188,9 @@
         border-color: var(--muted);
       }
 
+      /* ── Progress ── */
       #progress-wrap {
-        margin-top: 24px;
+        margin-top: 20px;
         display: none;
       }
       #progress-wrap.visible {
@@ -215,11 +229,18 @@
         color: var(--error);
       }
 
+      /* ── Output card ── */
+      .output-card {
+        display: flex;
+        flex-direction: column;
+      }
       .output-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 16px;
+        margin-bottom: 12px;
+        flex-wrap: wrap;
+        gap: 8px;
       }
       .output-label {
         font-size: 11px;
@@ -230,10 +251,11 @@
       .output-actions {
         display: flex;
         gap: 8px;
+        flex-wrap: wrap;
       }
       #output {
         width: 100%;
-        height: 360px;
+        height: 360px; /* fallback for mobile */
         background: var(--bg);
         border: 1px solid var(--border);
         border-radius: var(--radius);
@@ -241,7 +263,7 @@
         font-family: "DM Mono", monospace;
         font-size: 12px;
         line-height: 1.7;
-        padding: 20px;
+        padding: 16px;
         resize: vertical;
         outline: none;
         white-space: pre;
@@ -251,16 +273,14 @@
         border-color: var(--muted);
       }
 
+      /* ── Footer ── */
       footer {
-        width: 100%;
-        max-width: 860px;
-        margin-top: auto;
-        padding: 28px 0 40px;
         border-top: 1px solid var(--border);
+        padding-top: 16px;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        gap: 16px;
+        gap: 12px;
         flex-wrap: wrap;
       }
       .footer-libs {
@@ -288,6 +308,7 @@
         color: var(--border);
       }
 
+      /* ── Spinner ── */
       @keyframes spin {
         to {
           transform: rotate(360deg);
@@ -297,65 +318,116 @@
         display: inline-block;
         animation: spin 0.7s linear infinite;
       }
+
+      /* ════════════════════════════════════════════════════════════
+         Desktop: two-column, no vertical scroll
+         Triggered when the page container (body) is ≥ 700px wide.
+         ════════════════════════════════════════════════════════════ */
+      @container page (min-width: 700px) {
+        /* Full-viewport shell, no overflow */
+        .app {
+          height: 100dvh;
+          overflow: hidden;
+          padding: 20px;
+          gap: 12px;
+        }
+
+        /* Two columns: fixed upload | fluid output */
+        main {
+          grid-template-columns: 340px 1fr;
+          align-items: stretch;
+          overflow: hidden;
+          min-height: 0;
+        }
+
+        /* Upload card scrolls internally if needed */
+        .upload-card {
+          overflow-y: auto;
+          min-height: 0;
+        }
+
+        /* Output card fills remaining height */
+        .output-card {
+          min-height: 0;
+          overflow: hidden;
+        }
+
+        /* Textarea grows to fill card instead of fixed 360px */
+        #output {
+          flex: 1;
+          height: auto;
+          min-height: 0;
+          resize: none;
+        }
+
+        /* Tighter dropzone in the narrower left column */
+        #dropzone {
+          padding: 28px 16px;
+        }
+      }
     </style>
   </head>
   <body>
-    <header>
-      <div class="badge">Client-side · No server · Browser only</div>
-      <h1>
-        PDF
-        <span>→</span>
-        Markdown / DOCX
-      </h1>
-      <p class="subtitle">OCR-powered conversion for scanned documents · All processing stays on your machine</p>
-    </header>
+    <div class="app">
+      <header>
+        <div class="badge">Client-side · No server · Browser only</div>
+        <h1>
+          PDF
+          <span>→</span>
+          Markdown / DOCX
+        </h1>
+        <p class="subtitle">OCR-powered conversion for scanned documents · All processing stays on your machine</p>
+      </header>
 
-    <div class="card">
-      <div id="dropzone">
-        <input type="file" id="pdfInput" accept=".pdf" />
-        <span class="drop-icon">📄</span>
-        <div class="drop-label">Drop a PDF here or click to browse</div>
-        <div class="drop-sub">Native or scanned PDF · English OCR fallback</div>
-      </div>
-      <div id="file-name"></div>
-      <div class="controls">
-        <button class="btn btn-primary" id="btn-convert" disabled>
-          <span>▶</span>
-          Convert
-        </button>
-      </div>
-      <div id="progress-wrap">
-        <div class="progress-header">
-          <span>Progress</span>
-          <span id="page-counter">—</span>
+      <main>
+        <div class="card upload-card">
+          <div id="dropzone">
+            <input type="file" id="pdfInput" accept=".pdf" />
+            <span class="drop-icon">📄</span>
+            <div class="drop-label">Drop a PDF here or click to browse</div>
+            <div class="drop-sub">Native or scanned PDF · English OCR fallback</div>
+          </div>
+          <div id="file-name"></div>
+          <div class="controls">
+            <button class="btn btn-primary" id="btn-convert" disabled>
+              <span>▶</span>
+              Convert
+            </button>
+          </div>
+          <div id="progress-wrap">
+            <div class="progress-header">
+              <span>Progress</span>
+              <span id="page-counter">—</span>
+            </div>
+            <div id="progress-track"><div id="progress-bar"></div></div>
+            <div id="status-msg"></div>
+          </div>
         </div>
-        <div id="progress-track"><div id="progress-bar"></div></div>
-        <div id="status-msg"></div>
-      </div>
-    </div>
 
-    <div class="card">
-      <div class="output-header">
-        <span class="output-label">Result · Markdown</span>
-        <div class="output-actions">
-          <button class="btn btn-outline" id="btn-copy" disabled>📋 Copy</button>
-          <button class="btn btn-outline" id="btn-md" disabled>⬇ .md</button>
-          <button class="btn btn-outline" id="btn-docx" disabled>⬇ .docx</button>
+        <div class="card output-card">
+          <div class="output-header">
+            <span class="output-label">Result · Markdown</span>
+            <div class="output-actions">
+              <button class="btn btn-outline" id="btn-copy" disabled>📋 Copy</button>
+              <button class="btn btn-outline" id="btn-md" disabled>⬇ .md</button>
+              <button class="btn btn-outline" id="btn-docx" disabled>⬇ .docx</button>
+            </div>
+          </div>
+          <textarea id="output" readonly placeholder="Converted text will appear here…"></textarea>
         </div>
-      </div>
-      <textarea id="output" readonly placeholder="Converted text will appear here…"></textarea>
-    </div>
+      </main>
 
-    <footer>
-      <div class="footer-libs">
-        <a href="https://mozilla.github.io/pdf.js/" target="_blank" rel="noopener">PDF.js 5</a>
-        <span class="sep">·</span>
-        <a href="https://tesseract.projectnaptha.com/" target="_blank" rel="noopener">Tesseract.js 6</a>
-        <span class="sep">·</span>
-        <a href="https://docx.js.org/" target="_blank" rel="noopener">docx.js 9</a>
-      </div>
-      <span class="footer-note">No data leaves your browser</span>
-    </footer>
+      <footer>
+        <div class="footer-libs">
+          <a href="https://mozilla.github.io/pdf.js/" target="_blank" rel="noopener">PDF.js 5</a>
+          <span class="sep">·</span>
+          <a href="https://tesseract.projectnaptha.com/" target="_blank" rel="noopener">Tesseract.js 6</a>
+          <span class="sep">·</span>
+          <a href="https://docx.js.org/" target="_blank" rel="noopener">docx.js 9</a>
+        </div>
+        <span class="footer-note">No data leaves your browser</span>
+      </footer>
+    </div>
 
     <script type="module">
       import * as pdfjsLib from "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/5.4.149/pdf.min.mjs";
@@ -365,7 +437,6 @@
       pdfjsLib.GlobalWorkerOptions.workerSrc =
         "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/5.4.149/pdf.worker.min.mjs";
 
-      // Minimum non-whitespace characters for a page to be considered native (not scanned)
       const NATIVE_TEXT_THRESHOLD = 20;
 
       let markdownResult = "";
@@ -429,7 +500,6 @@
         statusMsg.className = "err";
       }
 
-      // Convert PDF text content items to a plain string, preserving line breaks via hasEOL.
       function itemsToText(items) {
         return items
           .map((item) => item.str + (item.hasEOL ? "\n" : ""))
@@ -437,8 +507,6 @@
           .trim();
       }
 
-      // Normalise extracted text: convert bullet glyphs → markdown list items,
-      // collapse excessive blank lines, strip trailing whitespace per line.
       function postProcess(text) {
         return text
           .split("\n")
@@ -452,7 +520,6 @@
           .replace(/\n{3,}/g, "\n\n");
       }
 
-      // Render a page to a canvas for OCR (only used on scanned pages).
       async function renderPage(page, scale = 2.5) {
         const viewport = page.getViewport({ scale });
         const canvas = document.createElement("canvas");
@@ -473,7 +540,6 @@
         btnConvert.innerHTML = '<span class="spin">⏳</span> Working…';
         setProgress(5, "Loading PDF…", "");
 
-        // Tesseract worker is created lazily — only if a scanned page is found.
         let ocrWorker = null;
 
         try {
@@ -497,7 +563,6 @@
             if (isNative) {
               pageText = postProcess(nativeText);
             } else {
-              // Scanned page — initialise OCR worker on first need
               if (!ocrWorker) {
                 setProgress(pct, "Initialising OCR engine…", `${i} / ${total}`);
                 ocrWorker = await Tesseract.createWorker("eng", 1, { logger: () => {} });
