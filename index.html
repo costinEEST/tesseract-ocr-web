@@ -31,14 +31,6 @@
         --focus: #5b8dee;
       }
 
-      *,
-      *::before,
-      *::after {
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
-      }
-
       body {
         container-type: inline-size;
         container-name: page;
@@ -160,28 +152,47 @@
         min-height: 18px;
       }
 
-      /* ── Separator select ── */
-      .separator-field {
+      /* ── Field group (separator + language) ── */
+      .field-group {
         margin-top: 20px;
         display: flex;
         flex-direction: column;
         gap: 6px;
       }
-      .separator-field label {
+      .field-group label {
         font-size: 10px;
         letter-spacing: 0.12em;
         text-transform: uppercase;
         color: var(--muted);
       }
-      /* Hint text shown below the select */
-      .separator-hint {
+      .field-hint {
         font-size: 10px;
         color: var(--muted);
         letter-spacing: 0.04em;
         min-height: 14px;
         transition: opacity 0.15s;
       }
-      /* Custom select wrapper — needed so we can style the arrow */
+
+      /* ── Language badge shown next to label ── */
+      .lang-badge {
+        display: inline-block;
+        margin-left: 6px;
+        font-size: 9px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--accent2);
+        border: 1px solid var(--accent2);
+        padding: 1px 5px;
+        border-radius: 3px;
+        vertical-align: middle;
+        opacity: 0;
+        transition: opacity 0.2s;
+      }
+      .lang-badge.visible {
+        opacity: 1;
+      }
+
+      /* ── Custom select ── */
       .select-wrap {
         position: relative;
         display: block;
@@ -196,7 +207,7 @@
         pointer-events: none;
         font-size: 12px;
       }
-      #separator-select {
+      .custom-select {
         width: 100%;
         appearance: none;
         -webkit-appearance: none;
@@ -211,16 +222,15 @@
         transition: border-color 0.15s;
         outline: none;
       }
-      #separator-select:hover {
+      .custom-select:hover {
         border-color: var(--muted);
       }
-      #separator-select:focus-visible {
+      .custom-select:focus-visible {
         border-color: var(--focus);
         outline: 2px solid var(--focus);
         outline-offset: 2px;
       }
-      /* Option elements inherit bg/color in most browsers */
-      #separator-select option {
+      .custom-select option {
         background: var(--surface);
         color: var(--text);
       }
@@ -473,28 +483,78 @@
               aria-describedby="drop-hint" />
             <span class="drop-icon" aria-hidden="true">📄</span>
             <div class="drop-label" aria-hidden="true">Drop a PDF here or click to browse</div>
-            <div class="drop-sub" id="drop-hint">Native or scanned PDF · English OCR fallback</div>
+            <div class="drop-sub" id="drop-hint">Native or scanned PDF · multilingual OCR</div>
           </div>
 
           <div id="file-name" aria-live="polite" aria-atomic="true"></div>
 
-          <!--
-            Separator selector sits between file selection and the Convert button.
-            This is the natural decision point: the user has chosen their file and
-            is about to trigger conversion, so they can set output options here
-            before committing — analogous to print settings before hitting Print.
-          -->
-          <div class="separator-field">
+          <!-- Language selector -->
+          <div class="field-group">
+            <label for="lang-select">
+              OCR language
+              <span id="lang-badge" class="lang-badge" aria-hidden="true"></span>
+            </label>
+            <div class="select-wrap">
+              <select id="lang-select" class="custom-select" aria-describedby="lang-hint">
+                <optgroup label="— Latin script (diacritics)">
+                  <option value="ron">Romanian (română)</option>
+                  <option value="hun">Hungarian (magyar)</option>
+                  <option value="tur">Turkish (Türkçe)</option>
+                  <option value="spa">Spanish (español)</option>
+                  <option value="ita">Italian (italiano)</option>
+                  <option value="deu">German (Deutsch)</option>
+                  <option value="fra">French (français)</option>
+                  <option value="lat">Latin</option>
+                </optgroup>
+                <optgroup label="— Latin script (ASCII)">
+                  <option value="eng">English</option>
+                </optgroup>
+                <optgroup label="— Cyrillic">
+                  <option value="rus">Russian (русский)</option>
+                  <option value="ukr">Ukrainian (українська)</option>
+                  <option value="bul">Bulgarian (български)</option>
+                </optgroup>
+                <optgroup label="— Other scripts">
+                  <option value="ell">Greek (ελληνικά)</option>
+                  <option value="heb">Hebrew (עברית)</option>
+                </optgroup>
+                <optgroup label="— Combinations">
+                  <option value="ron+eng">Romanian + English</option>
+                  <option value="rus+eng">Russian + English</option>
+                  <option value="ukr+rus">Ukrainian + Russian</option>
+                  <option value="spa+eng">Spanish + English</option>
+                </optgroup>
+              </select>
+            </div>
+            <span id="lang-hint" class="field-hint" aria-live="polite"></span>
+          </div>
+
+          <!-- Layout selector -->
+          <div class="field-group">
+            <label for="layout-select">Page layout</label>
+            <div class="select-wrap">
+              <select id="layout-select" class="custom-select" aria-describedby="layout-hint">
+                <option value="auto" selected>Auto-detect columns</option>
+                <option value="single">Single column</option>
+                <option value="two-col">Two columns (left → right)</option>
+                <option value="three-col">Three columns (left → mid → right)</option>
+              </select>
+            </div>
+            <span id="layout-hint" class="field-hint" aria-live="polite"></span>
+          </div>
+
+          <!-- Separator selector -->
+          <div class="field-group">
             <label for="separator-select">Page separator</label>
             <div class="select-wrap">
-              <select id="separator-select" aria-describedby="separator-hint">
+              <select id="separator-select" class="custom-select" aria-describedby="separator-hint">
                 <option value="hr">Horizontal rule ———</option>
                 <option value="heading-hr">Heading + rule ## Page N / ———</option>
                 <option value="blank-lines" selected>Double blank line ↵↵</option>
                 <option value="html-comment">HTML comment &lt;!-- Page N --&gt;</option>
               </select>
             </div>
-            <span id="separator-hint" class="separator-hint" aria-live="polite"></span>
+            <span id="separator-hint" class="field-hint" aria-live="polite"></span>
           </div>
 
           <div class="controls">
@@ -588,16 +648,119 @@
 
       const NATIVE_TEXT_THRESHOLD = 20;
 
+      // ── Language metadata ────────────────────────────────────────────────────
+      // hint: shown below the select
+      // fix:  optional post-processing function for common OCR misreads
+      //       specific to that language/script
+      const LANG_META = {
+        ron: {
+          hint: "Romanian — corrects ș/ț/ă/î/â diacritics lost in ASCII fallback.",
+          fix: (t) =>
+            t
+              // ș (s-comma-below) misread as g or s in many scan qualities
+              .replace(/\bgi\b/g, "și")
+              .replace(/\bGi\b/g, "Și")
+              .replace(/\bgi-/g, "și-")
+              .replace(/\bSi\b/g, "Și")
+              // word-final "-ti" → "-ți", "-ta" → "-ța", "-te" → "-țe" (inflections)
+              .replace(/\b(drep|obliga|dispozi|condi|presta|beneficia|autorita)ti\b/gi, (_, s) => s + "ți")
+              .replace(/\b(drep|obliga|dispozi|condi|presta|beneficia|autorita)tii\b/gi, (_, s) => s + "ții")
+              // common standalone conjunctions / prepositions
+              .replace(/\bsi\b/g, "și")
+              .replace(/\bSi\b/g, "Și")
+              .replace(/\bca\b(?= (?:urmare|rezultat|atare))/g, "că")
+              .replace(/\bpentru ca\b/g, "pentru că")
+              .replace(/\bca sa\b/g, "că să")
+              // s-cedilla variants that survive as plain s
+              .replace(/([Pp])restatoru([lui|l\b])/g, "$1restatoru$2")
+              // â / î inside common word roots
+              .replace(/\bIn\b/g, "În")
+              .replace(/\bin\b(?= cadrul| baza| termen| cazul| care| care| mod)/g, "în"),
+        },
+        hun: {
+          hint: "Hungarian — preserves ő/ű long umlauts often stripped by English OCR.",
+          fix: null,
+        },
+        tur: {
+          hint: "Turkish — handles ş/ç/ğ/ı/ö/ü specific to the Turkish alphabet.",
+          fix: null,
+        },
+        spa: {
+          hint: "Spanish — retains á/é/í/ó/ú/ñ/ü and inverted punctuation.",
+          fix: null,
+        },
+        ita: {
+          hint: "Italian — handles à/è/é/ì/î/ò/ù accents.",
+          fix: null,
+        },
+        deu: {
+          hint: "German — preserves ä/ö/ü/ß and compound nouns.",
+          fix: null,
+        },
+        fra: {
+          hint: "French — retains accents, cedillas and ligatures (œ/æ).",
+          fix: null,
+        },
+        lat: {
+          hint: "Latin — classical Latin text, macrons and ligatures.",
+          fix: null,
+        },
+        eng: {
+          hint: "English only — use for ASCII documents without diacritics.",
+          fix: null,
+        },
+        rus: {
+          hint: "Russian — full Cyrillic support.",
+          fix: null,
+        },
+        ukr: {
+          hint: "Ukrainian — Cyrillic with і/ї/є/ґ unique to Ukrainian.",
+          fix: null,
+        },
+        bul: {
+          hint: "Bulgarian — Cyrillic without non-Bulgarian letters.",
+          fix: null,
+        },
+        ell: {
+          hint: "Greek — modern and polytonic Greek script.",
+          fix: null,
+        },
+        heb: {
+          hint: "Hebrew — right-to-left script; layout may need manual adjustment.",
+          fix: null,
+        },
+        // combinations — hint only, fix inherited from primary language
+        "ron+eng": {
+          hint: "Romanian primary with English fallback — good for bilingual contracts.",
+          fix: null, // ron fix applied separately via primary key
+        },
+        "rus+eng": {
+          hint: "Russian primary with English fallback.",
+          fix: null,
+        },
+        "ukr+rus": {
+          hint: "Ukrainian primary with Russian fallback — covers mixed Slavic text.",
+          fix: null,
+        },
+        "spa+eng": {
+          hint: "Spanish primary with English fallback.",
+          fix: null,
+        },
+      };
+
+      // ── Layout metadata ──────────────────────────────────────────────────────
+      const LAYOUT_META = {
+        auto: {
+          hint: "Scans for a vertical whitespace band in the middle of the page. Falls back to single-column when none is found.",
+        },
+        single: { hint: "Reads the full page width as one continuous text flow." },
+        "two-col": {
+          hint: "Splits the page at 50% width. OCRs left strip first, then right — ideal for newspaper/contract layouts.",
+        },
+        "three-col": { hint: "Splits the page at 33% and 66% width. Left → middle → right." },
+      };
+
       // ── Separator modes ──────────────────────────────────────────────────────
-      //
-      // Each mode is an object with:
-      //   hint      – short description shown below the select (aria-live)
-      //   between   – function(pageIndex, total) → string inserted BETWEEN pages
-      //   wrap      – optional function(text, pageIndex) → wraps each page's text
-      //               (undefined = no wrapping, text passed through as-is)
-      //   docxBlock – function(pageIndex) → array of docx Paragraph nodes to insert
-      //               between pages when exporting to .docx
-      //
       const SEPARATOR_MODES = {
         hr: {
           hint: "A --- rule is inserted between pages. Clean and widely supported.",
@@ -618,9 +781,6 @@
         },
         "blank-lines": {
           hint: "Two blank lines separate pages — invisible in rendered output, ideal for prose.",
-          // Two blank lines = three consecutive newlines.
-          // postProcess collapses \n{3,} → \n\n, so we emit the separator AFTER
-          // joining; pages themselves are kept as-is here.
           between: () => "\n\n\n",
           wrap: undefined,
           docxBlock: () => [
@@ -640,6 +800,11 @@
       const pdfInput = document.getElementById("pdfInput");
       const dropzone = document.getElementById("dropzone");
       const fileNameEl = document.getElementById("file-name");
+      const langSelect = document.getElementById("lang-select");
+      const langHint = document.getElementById("lang-hint");
+      const langBadge = document.getElementById("lang-badge");
+      const layoutSelect = document.getElementById("layout-select");
+      const layoutHint = document.getElementById("layout-hint");
       const separatorSelect = document.getElementById("separator-select");
       const separatorHint = document.getElementById("separator-hint");
       const btnConvert = document.getElementById("btn-convert");
@@ -657,13 +822,33 @@
       let currentFileName = "ocr-result";
       let selectedFile = null;
 
-      // ── Separator select hint ─────────────────────────────────────────────
-      function updateHint() {
+      // ── Hint updaters ─────────────────────────────────────────────────────
+      function updateLayoutHint() {
+        const meta = LAYOUT_META[layoutSelect.value];
+        layoutHint.textContent = meta ? meta.hint : "";
+      }
+
+      function updateLangHint() {
+        const key = langSelect.value;
+        const meta = LANG_META[key];
+        langHint.textContent = meta ? meta.hint : "";
+
+        // Show a small badge with the Tesseract language code
+        langBadge.textContent = key.toUpperCase();
+        langBadge.classList.add("visible");
+      }
+
+      function updateSepHint() {
         const mode = SEPARATOR_MODES[separatorSelect.value];
         separatorHint.textContent = mode ? mode.hint : "";
       }
-      separatorSelect.addEventListener("change", updateHint);
-      updateHint(); // populate on load
+
+      layoutSelect.addEventListener("change", updateLayoutHint);
+      langSelect.addEventListener("change", updateLangHint);
+      separatorSelect.addEventListener("change", updateSepHint);
+      updateLayoutHint();
+      updateLangHint();
+      updateSepHint();
 
       // ── Helpers ──────────────────────────────────────────────────────────────
       function setButtonEnabled(btn, enabled) {
@@ -673,14 +858,11 @@
 
       async function applyFile(file) {
         if (!file) return;
-
         const header = await file.slice(0, 5).text();
-
         if (header !== "%PDF-") {
           fileNameEl.textContent = "✗ Not a valid PDF file.";
           return;
         }
-
         selectedFile = file;
         currentFileName = file.name.replace(/\.pdf$/i, "");
         fileNameEl.textContent = `Selected: ${file.name}`;
@@ -698,7 +880,6 @@
       }
 
       pdfInput.addEventListener("change", async () => await applyFile(pdfInput.files[0]));
-
       dropzone.addEventListener("dragover", (e) => {
         e.preventDefault();
         dropzone.classList.add("drag-over");
@@ -733,8 +914,11 @@
           .trim();
       }
 
-      function postProcess(text) {
-        return text
+      // ── Post-processing ───────────────────────────────────────────────────
+      // lang: the Tesseract language key (e.g. "ron", "ron+eng", "rus", …)
+      function postProcess(text, lang = "eng") {
+        // 1. Generic cleanup: bullet normalisation + collapse excess blank lines
+        let out = text
           .split("\n")
           .map((line) =>
             line
@@ -744,7 +928,168 @@
           )
           .join("\n")
           .replace(/\n{3,}/g, "\n\n");
+
+        // 2. Language-specific diacritic repair
+        // Use the primary language key (before the first "+") for lookup
+        const primaryLang = lang.split("+")[0];
+        const meta = LANG_META[primaryLang];
+        if (meta && typeof meta.fix === "function") {
+          out = meta.fix(out);
+        }
+
+        return out;
       }
+
+      // ── Column-layout helpers ─────────────────────────────────────────────────
+
+      /**
+       * Analyse a rendered canvas and return the x-positions where columns split.
+       * Returns [] (no split found) or [x1] for two columns, [x1, x2] for three.
+       *
+       * Algorithm:
+       *  1. Sample the middle 50 % of page height (avoids headers / footers / page numbers).
+       *  2. For each x, compute the fraction of "dark" pixels (luminance < 200/255).
+       *  3. Smooth over a window of ~3 % of page width.
+       *  4. Search for the global minimum in the centre 30 % of width.
+       *     If the minimum dark-fraction is < 1.5 % → column gap found → return split x.
+       */
+      function findColumnSplits(canvas) {
+        const ctx = canvas.getContext("2d");
+        const W = canvas.width;
+        const H = canvas.height;
+        const y0 = Math.floor(H * 0.25);
+        const y1 = Math.floor(H * 0.75);
+        const sH = y1 - y0;
+        const pixels = ctx.getImageData(0, y0, W, sH).data;
+
+        // dark-pixel fraction per x column
+        const dark = new Float32Array(W);
+        for (let x = 0; x < W; x++) {
+          let n = 0;
+          for (let y = 0; y < sH; y++) {
+            const i = (y * W + x) * 4;
+            const lum = 0.299 * pixels[i] + 0.587 * pixels[i + 1] + 0.114 * pixels[i + 2];
+            if (lum < 200) n++;
+          }
+          dark[x] = n / sH;
+        }
+
+        // smooth with window ≈ 3 % of width
+        const win = Math.max(1, Math.floor(W * 0.03));
+        const smooth = new Float32Array(W);
+        for (let x = 0; x < W; x++) {
+          let s = 0,
+            c = 0;
+          for (let d = -win; d <= win; d++) {
+            const nx = x + d;
+            if (nx >= 0 && nx < W) {
+              s += dark[nx];
+              c++;
+            }
+          }
+          smooth[x] = s / c;
+        }
+
+        // find the minimum in the centre 30 % band
+        const lo = Math.floor(W * 0.35);
+        const hi = Math.floor(W * 0.65);
+        let minVal = Infinity,
+          splitX = Math.floor(W / 2);
+        for (let x = lo; x < hi; x++) {
+          if (smooth[x] < minVal) {
+            minVal = smooth[x];
+            splitX = x;
+          }
+        }
+
+        // threshold: < 1.5 % dark pixels at the gap = clear column separator
+        return minVal < 0.015 ? [splitX] : [];
+      }
+
+      /**
+       * Slice a canvas into vertical strips at the given x split-points.
+       * Returns an array of new Canvas elements, one per strip.
+       */
+      function sliceCanvas(canvas, splitXs) {
+        const H = canvas.height;
+        const bounds = [0, ...splitXs, canvas.width];
+        return bounds.slice(0, -1).map((x0, i) => {
+          const x1 = bounds[i + 1];
+          const w = x1 - x0;
+          const c = document.createElement("canvas");
+          c.width = w;
+          c.height = H;
+          c.getContext("2d").drawImage(canvas, x0, 0, w, H, 0, 0, w, H);
+          return c;
+        });
+      }
+
+      /**
+       * For native (selectable) PDFs with multiple columns:
+       * sorts text items into columns by their PDF x-coordinate and
+       * reads each column top-to-bottom before moving to the next.
+       *
+       * splitXs: array of x-values in PDF user-space that divide columns.
+       *          If empty, falls back to standard left-to-right order.
+       */
+      function nativeColumnarText(items, splitXs) {
+        if (!splitXs.length) return itemsToText(items);
+
+        // Build column buckets
+        const bounds = [0, ...splitXs, Infinity];
+        const cols = bounds.slice(0, -1).map(() => []);
+
+        for (const item of items) {
+          const x = item.transform[4]; // PDF x origin of glyph
+          const col = bounds.findIndex((lo, i) => x >= lo && x < bounds[i + 1]);
+          if (col !== -1) cols[col].push(item);
+        }
+
+        // Within each column sort descending by PDF y (y=0 is at bottom in PDF space)
+        return cols
+          .map((col) =>
+            col
+              .sort((a, b) => b.transform[5] - a.transform[5])
+              .map((item) => item.str + (item.hasEOL ? "\n" : ""))
+              .join("")
+              .trim(),
+          )
+          .filter(Boolean)
+          .join("\n\n");
+      }
+
+      /**
+       * For a given PDF page + layout setting, return an ordered array of
+       * canvas strips to OCR.  For native pages, returns null (caller uses
+       * nativeColumnarText instead).
+       *
+       * layout: "auto" | "single" | "two-col" | "three-col"
+       */
+      async function getStrips(pdfPage, layout, scale = 2.5) {
+        const canvas = await renderPage(pdfPage, scale);
+        const W = canvas.width;
+
+        let splitXs;
+        switch (layout) {
+          case "single":
+            splitXs = [];
+            break;
+          case "two-col":
+            splitXs = [Math.floor(W / 2)];
+            break;
+          case "three-col":
+            splitXs = [Math.floor(W / 3), Math.floor((2 * W) / 3)];
+            break;
+          case "auto":
+          default:
+            splitXs = findColumnSplits(canvas);
+            break;
+        }
+
+        return { strips: sliceCanvas(canvas, splitXs), splitXs, fullCanvas: canvas };
+      }
+
+      // ── End column-layout helpers ─────────────────────────────────────────────
 
       async function renderPage(page, scale = 2.5) {
         const viewport = page.getViewport({ scale });
@@ -759,6 +1104,8 @@
       btnConvert.addEventListener("click", async () => {
         if (!selectedFile) return;
 
+        const lang = langSelect.value;
+        const layout = layoutSelect.value;
         const mode = SEPARATOR_MODES[separatorSelect.value] ?? SEPARATOR_MODES["blank-lines"];
 
         markdownResult = "";
@@ -776,10 +1123,6 @@
           const buf = await selectedFile.arrayBuffer();
           const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
           const total = pdf.numPages;
-
-          // Collect each page's processed text first, then join with the
-          // chosen separator. This keeps separator logic out of the loop body
-          // and avoids a trailing separator after the last page.
           const pages = [];
 
           for (let i = 1; i <= total; i++) {
@@ -794,28 +1137,46 @@
             let pageText;
 
             if (isNative) {
-              pageText = postProcess(nativeText);
+              // For native PDFs, derive column split-points from page dimensions
+              // then re-order items column by column.
+              const viewport = page.getViewport({ scale: 1 });
+              let splitXs = [];
+              if (layout === "two-col") splitXs = [viewport.width / 2];
+              if (layout === "three-col") splitXs = [viewport.width / 3, (2 * viewport.width) / 3];
+              // "auto" on native PDFs: skip pixel analysis, use plain order (reliable enough)
+              pageText = postProcess(nativeColumnarText(content.items, splitXs), lang);
             } else {
+              // Scanned page — render to canvas, slice into strips, OCR each strip
               if (!ocrWorker) {
-                setProgress(pct, "Initialising OCR engine…", `${i} / ${total}`);
-                ocrWorker = await Tesseract.createWorker("eng", 1, { logger: () => {} });
+                setProgress(pct, `Initialising OCR engine (${lang})…`, `${i} / ${total}`);
+                ocrWorker = await Tesseract.createWorker(lang, 1, { logger: () => {} });
               }
+
               setProgress(pct + 1, `Running OCR on page ${i}…`, `${i} / ${total}`);
-              const canvas = await renderPage(page, 2.5);
-              const {
-                data: { text },
-              } = await ocrWorker.recognize(canvas);
-              pageText = postProcess(text.trim());
+              const { strips } = await getStrips(page, layout, 2.5);
+
+              // OCR each strip and join; strip count > 1 only when columns were found
+              const parts = [];
+              for (let s = 0; s < strips.length; s++) {
+                if (strips.length > 1) {
+                  setProgress(
+                    pct + 1 + Math.round((s / strips.length) * 2),
+                    `OCR page ${i} — col ${s + 1}/${strips.length}…`,
+                    `${i} / ${total}`,
+                  );
+                }
+                const {
+                  data: { text },
+                } = await ocrWorker.recognize(strips[s]);
+                const stripped = text.trim();
+                if (stripped) parts.push(stripped);
+              }
+              pageText = postProcess(parts.join("\n\n"), lang);
             }
 
-            // Apply optional per-page wrapper (e.g. heading-hr prepends "## Page N")
             pages.push(mode.wrap ? mode.wrap(pageText, i) : pageText);
           }
 
-          // Join pages with the chosen separator.
-          // between(i) receives the 1-based index of the page that FOLLOWS
-          // the separator (consistent with html-comment mode which labels
-          // the page about to begin).
           const bodyParts = [];
           for (let i = 0; i < pages.length; i++) {
             bodyParts.push(pages[i]);
@@ -857,13 +1218,8 @@
         for (let li = 0; li < lines.length; li++) {
           const line = lines[li];
 
-          // Detect the "between" markers in the raw markdown so we can
-          // replace them with proper docx separator nodes.
           const isHr = line.trim() === "---";
           const isHtmlComment = /^<!--\s*Page \d+\s*-->$/.test(line.trim());
-
-          // For blank-lines mode the separator is invisible in text, so we
-          // detect two consecutive empty lines and emit the docx separator.
           const isDoubleBlank =
             separatorSelect.value === "blank-lines" &&
             line.trim() === "" &&
@@ -879,15 +1235,12 @@
             continue;
           }
           if (separatorSelect.value === "html-comment" && isHtmlComment) {
-            // Extract page number from comment for the docx label
             const m = line.match(/Page (\d+)/);
-            const pageNum = m ? parseInt(m[1], 10) : 0;
-            children.push(...mode.docxBlock(pageNum));
+            children.push(...mode.docxBlock(m ? parseInt(m[1], 10) : 0));
             continue;
           }
           if (isDoubleBlank) {
             children.push(...mode.docxBlock());
-            // Skip the second blank line so we don't emit two separator blocks
             li++;
             continue;
           }

@@ -7,16 +7,19 @@ A client-side tool for converting PDFs to Markdown or DOCX. No server, no upload
 - [How it works](#how-it-works)
 - [Usage](#usage)
 - [Supported PDF types](#supported-pdf-types)
+- [Page layout detection](#page-layout-detection)
 - [Language support](#language-support)
 - [Privacy](#privacy)
 - [Libraries used](#libraries-used)
+
+---
 
 ## How it works
 
 The converter uses two strategies depending on the PDF type:
 
-- **Native PDF** (selectable text): text is extracted directly via PDF.js — instant and accurate, preserving Unicode characters, diacritics, and bullet points.
-- **Scanned PDF** (image-only pages): Tesseract.js OCR is used as a fallback. Only triggered for pages where no selectable text is found.
+- **Native PDF** (selectable text): text is extracted directly via PDF.js — instant and accurate, preserving Unicode characters, diacritics, and bullet points. Column order is reconstructed from the x/y coordinates of each text item.
+- **Scanned PDF** (image-only pages): Tesseract.js OCR is used as a fallback. Only triggered for pages where no selectable text is found. Before OCR runs, the page canvas is optionally split into column strips so each column is read top-to-bottom independently, preventing line interleaving.
 
 ---
 
@@ -24,15 +27,34 @@ The converter uses two strategies depending on the PDF type:
 
 ### 1. Open the page
 
-Navigate to the GitHub Pages URL. No installation or sign-in required.
+Navigate to the tool URL. No installation or sign-in required.
 
 ### 2. Load a PDF
 
-Either **drag and drop** a `.pdf` file onto the drop zone, or click it to open a file browser. The Convert button becomes active once a file is selected.
+Either **drag and drop** a `.pdf` file onto the drop zone, or click it to open a file browser. The Convert button becomes active once a valid file is selected.
 
-### 3. Choose a page separator
+### 3. Choose an OCR language
 
-Select how pages are separated in the output using the **Page separator** dropdown. The setting only takes effect at conversion time — changing it afterwards requires re-converting.
+Select the primary language of the document from the **OCR language** dropdown. This only affects scanned pages — native PDFs are unaffected. Choosing the correct language model is the single most important factor for diacritic accuracy (e.g. ș/ț/ă for Romanian, ő/ű for Hungarian).
+
+Multi-language combinations (e.g. `Romanian + English`) are available for bilingual documents. Each extra language increases model download size and OCR initialisation time, so select only what the document actually contains.
+
+### 4. Choose a page layout
+
+Select how the page is structured using the **Page layout** dropdown.
+
+| Option                  | Behaviour                                                                                                                                 |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Auto-detect _(default)_ | Analyses each scanned page for a vertical whitespace band in the centre third. Splits there if found; otherwise reads as a single column. |
+| Single column           | Reads the full page width as one continuous flow.                                                                                         |
+| Two columns             | Splits at 50% page width. OCRs the left strip first, then the right.                                                                      |
+| Three columns           | Splits at 33% and 66%. Reads left → middle → right.                                                                                       |
+
+For native PDFs, explicit column settings reorder text items by their PDF x-coordinate rather than splitting a canvas.
+
+### 5. Choose a page separator
+
+Select how pages are delimited in the output using the **Page separator** dropdown.
 
 | Option                        | Output                          | Best for                                              |
 | ----------------------------- | ------------------------------- | ----------------------------------------------------- |
@@ -41,15 +63,15 @@ Select how pages are separated in the output using the **Page separator** dropdo
 | Double blank line _(default)_ | Two empty lines                 | Prose — no visual noise in rendered output            |
 | HTML comment                  | `<!-- Page N -->` between pages | Pipelines — invisible when rendered, machine-readable |
 
-### 4. Convert
+### 6. Convert
 
-Click **Convert**. A progress bar tracks extraction page by page. Native pages process in under a second each; scanned pages take longer while OCR runs.
+Click **Convert**. A progress bar tracks extraction page by page. For multi-column scanned pages the status shows the current column (`col 1/2`, `col 2/2`). Native pages process in under a second each; scanned pages take longer while OCR runs.
 
-### 5. Review the output
+### 7. Review the output
 
-The result appears in the text area as Markdown. You can edit the text directly in the area before exporting.
+The result appears in the text area as Markdown. You can edit it directly before exporting.
 
-### 6. Export
+### 8. Export
 
 | Button  | Output                                            |
 | ------- | ------------------------------------------------- |
@@ -67,7 +89,33 @@ The result appears in the text area as Markdown. You can edit the text directly 
 | Scanned / image-only                    | Tesseract.js OCR        | Slower |
 | Mixed (some native, some scanned pages) | Per-page auto-detection | Varies |
 
-> Accuracy depends on scan quality — higher resolution scans produce better results.
+Accuracy for scanned documents depends on scan resolution — higher DPI produces better results. The tool renders each page at 2.5× scale before OCR to improve character recognition.
+
+---
+
+## Page layout detection
+
+Multi-column documents (contracts, newspapers, academic papers) have their columns read in the wrong order when a naive full-page OCR is applied — the engine reads one line across both columns before moving down. This tool addresses this at two levels.
+
+### Auto-detect (scanned PDFs)
+
+For each scanned page the rendered canvas is analysed before OCR:
+
+1. The middle 50% of the page height is sampled (headers and footers are excluded).
+2. For each x position, the fraction of dark pixels (luminance < 200) is computed.
+3. The result is smoothed over a window of ~3% of page width.
+4. The minimum dark-pixel fraction is found within the centre 30% of page width.
+5. If that minimum is below 1.5%, a clear column gap has been detected and the page is split there.
+
+If no gap is found, the page is treated as single-column regardless of the layout setting.
+
+### Explicit column settings
+
+When auto-detection misses (e.g. a scan with stray marks in the gutter), use the **Two columns** or **Three columns** options to force a fixed split at equal intervals.
+
+### Native PDFs
+
+For PDFs with embedded text, PDF.js provides the x/y coordinates of every text item. When a column mode is active, items are bucketed by x-range and each bucket is sorted top-to-bottom (descending PDF y, since the coordinate origin is at the bottom-left) before being joined.
 
 ---
 
@@ -75,39 +123,72 @@ The result appears in the text area as Markdown. You can edit the text directly 
 
 Language selection only affects **scanned pages**. Native PDFs are extracted directly by PDF.js and are unaffected by this setting.
 
-Tesseract.js supports 100+ languages. The most common European ones:
+The correct language model is critical for diacritic accuracy. Without it, Tesseract maps unfamiliar glyphs to the nearest ASCII equivalent — the most common Romanian example being `ș` misread as `g` (producing `gi` instead of `și`). The tool also applies a language-specific post-processing pass on top of Tesseract's output to correct systematic misreads that persist even with the correct model.
+
+### Available languages
+
+#### Latin script — with diacritics
 
 | Language  | Code  |
 | --------- | ----- |
-| English   | `eng` |
 | Romanian  | `ron` |
-| German    | `deu` |
 | Hungarian | `hun` |
-| French    | `fra` |
+| Turkish   | `tur` |
 | Spanish   | `spa` |
 | Italian   | `ita` |
-| Polish    | `pol` |
-| Czech     | `ces` |
-| Slovak    | `slk` |
-| Croatian  | `hrv` |
-| Bulgarian | `bul` |
+| German    | `deu` |
+| French    | `fra` |
+| Latin     | `lat` |
+
+#### Latin script — ASCII
+
+| Language | Code  |
+| -------- | ----- |
+| English  | `eng` |
+
+#### Cyrillic
+
+| Language  | Code  |
+| --------- | ----- |
 | Russian   | `rus` |
 | Ukrainian | `ukr` |
-| Dutch     | `nld` |
-| Greek     | `ell` |
-| Turkish   | `tur` |
+| Bulgarian | `bul` |
 
-For a full list of supported language codes see the [Tesseract.js language list](https://github.com/naptha/tesseract.js/blob/master/docs/tesseract_lang_list.md).
+#### Other scripts
 
-### Multiple languages
+| Language | Code  |
+| -------- | ----- |
+| Greek    | `ell` |
+| Hebrew   | `heb` |
 
-Tesseract accepts multiple languages simultaneously, e.g. `eng+ron+deu`. Each additional language increases the model download size and extends OCR initialisation time, so select only what the document actually contains.
+#### Combinations
+
+| Selection           | Codes     |
+| ------------------- | --------- |
+| Romanian + English  | `ron+eng` |
+| Russian + English   | `rus+eng` |
+| Ukrainian + Russian | `ukr+rus` |
+| Spanish + English   | `spa+eng` |
+
+Tesseract.js supports 100+ languages in total. For a full list of supported codes see the [Tesseract.js language list](https://github.com/naptha/tesseract.js/blob/master/docs/tesseract_lang_list.md).
+
+### Romanian diacritic repair
+
+Beyond using the `ron` model, the tool applies an additional post-processing pass targeting the most common systematic errors in Romanian contract and legal text:
+
+| Misread            | Corrected   | Rule               |
+| ------------------ | ----------- | ------------------ |
+| `gi`               | `și`        | `ș` misread as `g` |
+| standalone `si`    | `și`        | conjunction `și`   |
+| `In`               | `În`        | preposition `în`   |
+| `pentru ca`        | `pentru că` | conjunction `că`   |
+| `-ti` word endings | `-ți`       | inflection suffix  |
 
 ---
 
 ## Privacy
 
-Nothing leaves your machine. The file is read locally by the browser; no data is sent to any server. Closing the tab discards everything.
+Nothing leaves your machine. The file is read locally by the browser; no data is sent to any server. Tesseract language models are downloaded from a public CDN at first use and cached by the browser. Closing the tab discards all processed content.
 
 ---
 
