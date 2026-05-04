@@ -152,7 +152,7 @@
         min-height: 18px;
       }
 
-      /* ── Field group (separator + language) ── */
+      /* ── Form field groups ── */
       .field-group {
         margin-top: 20px;
         display: flex;
@@ -646,7 +646,47 @@
       pdfjsLib.GlobalWorkerOptions.workerSrc =
         "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/5.4.149/pdf.worker.min.mjs";
 
-      const NATIVE_TEXT_THRESHOLD = 20;
+      const NATIVE_TEXT_THRESHOLD = 120;
+      // Full-line boilerplate emitted by archival PDF generators.
+      // Keep these patterns conservative: do not strip meaningful URLs inside document text.
+      const KNOWN_PDF_BOILERPLATE_LINES = [
+        /^\s*https?:\/\/data\.onb\.ac\.at\/rep\/\S+\s*$/i,
+        /^\s*Seite\s+\d+\s+von\s+\d+\s*$/i,
+        /^\s*https?:\/\/data\.onb\.ac\.at\/rep\/\S+\s+Seite\s+\d+\s+von\s+\d+\s*$/i,
+        /^\s*Erstelldauer\s+\d{2}:\d{2}:\d{2}(?:\.\d+)?\s*$/i,
+      ];
+
+      function stripKnownBoilerplate(text) {
+        return text
+          .replace(/\r/g, "\n")
+          .split("\n")
+          .filter((line) => !KNOWN_PDF_BOILERPLATE_LINES.some((re) => re.test(line.trim())))
+          .map((line) => line.trimEnd())
+          .join("\n")
+          .replace(/[ \t]{2,}/g, " ")
+          .replace(/\n{3,}/g, "\n\n")
+          .trim();
+      }
+
+      /**
+       * Decide whether the PDF text layer contains real document text.
+       * Some scanned PDFs include only generated headers/footers as selectable text;
+       * those pages must still go through OCR.
+       */
+      function getTextQuality(text) {
+        const cleaned = stripKnownBoilerplate(text);
+        const letters = cleaned.match(/\p{L}/gu)?.length ?? 0;
+        const words = cleaned.match(/\p{L}{2,}/gu)?.length ?? 0;
+        const lines = cleaned.split(/\n+/).filter((line) => line.trim()).length;
+
+        return {
+          cleaned,
+          letters,
+          words,
+          lines,
+          isMeaningful: letters >= NATIVE_TEXT_THRESHOLD || (words >= 12 && lines >= 2),
+        };
+      }
 
       // ── Language metadata ────────────────────────────────────────────────────
       // hint: shown below the select
@@ -654,7 +694,7 @@
       //       specific to that language/script
       const LANG_META = {
         ron: {
-          hint: "Romanian — corrects ș/ț/ă/î/â diacritics lost in ASCII fallback.",
+          hint: "Romanian — applies conservative fixes for common OCR diacritic mistakes.",
           fix: (t) =>
             t
               // ș (s-comma-below) misread as g or s in many scan qualities
@@ -662,7 +702,7 @@
               .replace(/\bGi\b/g, "Și")
               .replace(/\bgi-/g, "și-")
               .replace(/\bSi\b/g, "Și")
-              // word-final "-ti" → "-ți", "-ta" → "-ța", "-te" → "-țe" (inflections)
+              // Common Romanian legal/document suffixes where ț is often read as plain t.
               .replace(/\b(drep|obliga|dispozi|condi|presta|beneficia|autorita)ti\b/gi, (_, s) => s + "ți")
               .replace(/\b(drep|obliga|dispozi|condi|presta|beneficia|autorita)tii\b/gi, (_, s) => s + "ții")
               // common standalone conjunctions / prepositions
@@ -671,8 +711,6 @@
               .replace(/\bca\b(?= (?:urmare|rezultat|atare))/g, "că")
               .replace(/\bpentru ca\b/g, "pentru că")
               .replace(/\bca sa\b/g, "că să")
-              // s-cedilla variants that survive as plain s
-              .replace(/([Pp])restatoru([lui|l\b])/g, "$1restatoru$2")
               // â / î inside common word roots
               .replace(/\bIn\b/g, "În")
               .replace(/\bin\b(?= cadrul| baza| termen| cazul| care| care| mod)/g, "în"),
@@ -943,15 +981,17 @@
       // ── Column-layout helpers ─────────────────────────────────────────────────
 
       /**
-       * Analyse a rendered canvas and return the x-positions where columns split.
-       * Returns [] (no split found) or [x1] for two columns, [x1, x2] for three.
+       * Analyse a rendered canvas and return an automatic two-column split.
+       * Returns [] when no reliable gutter is found, or [x] when a central gutter is detected.
+       *
+       * Three-column pages are handled only by the explicit "three-col" layout option.
        *
        * Algorithm:
-       *  1. Sample the middle 50 % of page height (avoids headers / footers / page numbers).
-       *  2. For each x, compute the fraction of "dark" pixels (luminance < 200/255).
-       *  3. Smooth over a window of ~3 % of page width.
-       *  4. Search for the global minimum in the centre 30 % of width.
-       *     If the minimum dark-fraction is < 1.5 % → column gap found → return split x.
+       *  1. Sample the middle 50% of page height to avoid headers and footers.
+       *  2. For each x position, compute the fraction of dark pixels.
+       *  3. Smooth the signal over ~3% of page width.
+       *  4. Look for the cleanest vertical gutter in the centre 30% of the page.
+       *  5. Split only when both sides contain text and the gutter is much cleaner.
        */
       function findColumnSplits(canvas) {
         const ctx = canvas.getContext("2d");
@@ -1002,8 +1042,24 @@
           }
         }
 
-        // threshold: < 1.5 % dark pixels at the gap = clear column separator
-        return minVal < 0.015 ? [splitX] : [];
+        function avg(arr, lo, hi) {
+          let sum = 0;
+          let count = 0;
+          for (let i = Math.max(0, lo); i < Math.min(arr.length, hi); i++) {
+            sum += arr[i];
+            count++;
+          }
+          return count ? sum / count : 0;
+        }
+
+        const leftDensity = avg(smooth, Math.floor(W * 0.12), Math.floor(W * 0.35));
+        const rightDensity = avg(smooth, Math.floor(W * 0.65), Math.floor(W * 0.88));
+
+        const hasTextOnBothSides = leftDensity > 0.008 && rightDensity > 0.008;
+        const gutterIsMuchCleaner = minVal < Math.min(leftDensity, rightDensity) * 0.35;
+
+        // Only split if there is real text density on both sides of the gutter.
+        return hasTextOnBothSides && gutterIsMuchCleaner ? [splitX] : [];
       }
 
       /**
@@ -1058,15 +1114,35 @@
           .join("\n\n");
       }
 
+      function cropCanvas(canvas, x, y, w, h) {
+        const out = document.createElement("canvas");
+        out.width = w;
+        out.height = h;
+        out.getContext("2d").drawImage(canvas, x, y, w, h, 0, 0, w, h);
+        return out;
+      }
+
+      function cropFooter(canvas, bottomRatio = 0.1) {
+        const h = Math.floor(canvas.height * (1 - bottomRatio));
+        return cropCanvas(canvas, 0, 0, canvas.width, h);
+      }
+
       /**
-       * For a given PDF page + layout setting, return an ordered array of
-       * canvas strips to OCR.  For native pages, returns null (caller uses
-       * nativeColumnarText instead).
+       * Render a scanned/OCR page and return the canvas strips to OCR.
        *
-       * layout: "auto" | "single" | "two-col" | "three-col"
+       * layout:
+       *  - "single": one full-width strip
+       *  - "two-col": fixed split at 50%
+       *  - "three-col": fixed splits at 33% and 66%
+       *  - "auto": split only if a reliable central gutter is detected
        */
-      async function getStrips(pdfPage, layout, scale = 2.5) {
-        const canvas = await renderPage(pdfPage, scale);
+      async function getStrips(pdfPage, layout, scale = 3.25) {
+        let canvas = await renderPage(pdfPage, scale);
+
+        // Conservative crop for archive-generated footer bands such as
+        // source URL + "Seite X von Y". Keep the ratio small to avoid losing content.
+        canvas = cropFooter(canvas, 0.1);
+
         const W = canvas.width;
 
         let splitXs;
@@ -1131,8 +1207,10 @@
 
             const page = await pdf.getPage(i);
             const content = await page.getTextContent();
-            const nativeText = itemsToText(content.items);
-            const isNative = nativeText.replace(/\s/g, "").length >= NATIVE_TEXT_THRESHOLD;
+
+            const nativeTextRaw = itemsToText(content.items);
+            const nativeQuality = getTextQuality(nativeTextRaw);
+            const isNative = nativeQuality.isMeaningful;
 
             let pageText;
 
@@ -1140,20 +1218,29 @@
               // For native PDFs, derive column split-points from page dimensions
               // then re-order items column by column.
               const viewport = page.getViewport({ scale: 1 });
+              // Auto-layout for native PDFs intentionally keeps PDF.js text order.
+              // Pixel-based gutter detection only runs on rendered OCR canvases.
               let splitXs = [];
+
               if (layout === "two-col") splitXs = [viewport.width / 2];
               if (layout === "three-col") splitXs = [viewport.width / 3, (2 * viewport.width) / 3];
-              // "auto" on native PDFs: skip pixel analysis, use plain order (reliable enough)
-              pageText = postProcess(nativeColumnarText(content.items, splitXs), lang);
+
+              const orderedNativeText = nativeColumnarText(content.items, splitXs);
+              pageText = postProcess(stripKnownBoilerplate(orderedNativeText), lang);
             } else {
               // Scanned page — render to canvas, slice into strips, OCR each strip
               if (!ocrWorker) {
                 setProgress(pct, `Initialising OCR engine (${lang})…`, `${i} / ${total}`);
                 ocrWorker = await Tesseract.createWorker(lang, 1, { logger: () => {} });
+
+                await ocrWorker.setParameters({
+                  preserve_interword_spaces: "1",
+                  user_defined_dpi: "300",
+                });
               }
 
               setProgress(pct + 1, `Running OCR on page ${i}…`, `${i} / ${total}`);
-              const { strips } = await getStrips(page, layout, 2.5);
+              const { strips } = await getStrips(page, layout, 3.25);
 
               // OCR each strip and join; strip count > 1 only when columns were found
               const parts = [];
@@ -1168,7 +1255,7 @@
                 const {
                   data: { text },
                 } = await ocrWorker.recognize(strips[s]);
-                const stripped = text.trim();
+                const stripped = stripKnownBoilerplate(text);
                 if (stripped) parts.push(stripped);
               }
               pageText = postProcess(parts.join("\n\n"), lang);
